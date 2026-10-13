@@ -14,8 +14,8 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
 });
 
-api.interceptors.request.use((config) => {
-  Object.assign(config.headers, getAuthHeaders());
+api.interceptors.request.use(async (config) => {
+  Object.assign(config.headers, await getAuthHeaders());
   return config;
 });
 
@@ -97,6 +97,13 @@ export const folderApi = {
   async deletePermanent(id) {
     await api.delete(`/folders/${id}/permanent`);
   },
+  async copy(id, { target_parent_id, name } = {}) {
+    const { data } = await api.post(`/folders/${id}/copy`, {
+      target_parent_id,
+      name,
+    });
+    return data.folder;
+  },
 };
 
 /* ---------------- FILES ---------------- */
@@ -133,6 +140,14 @@ export const fileApi = {
     await api.delete(`/files/${id}/permanent`);
   },
 
+  async copy(id, { target_folder_id, name } = {}) {
+    const { data } = await api.post(`/files/${id}/copy`, {
+      target_folder_id,
+      name,
+    });
+    return data.file;
+  },
+
   /**
    * Upload one or more files.
    * - Local/dev: single multipart POST to /files/upload
@@ -158,6 +173,36 @@ export const fileApi = {
     }
     onProgress?.(totalSize, totalSize);
     return results;
+  },
+
+  /**
+   * Download an entire folder as a zip.
+   * Fetches the streamed zip with the auth token and triggers a browser download.
+   * Note: the zip is held in memory during the fetch, so very large folders may
+   * use significant memory. For huge exports, consider server-side async export.
+   */
+  async downloadFolderZip(id) {
+    const { data } = await folderApi.get(id);
+    const folderName = data.folder?.name || 'folder';
+    const token = await getAuthHeaders().then((h) => h.Authorization);
+
+    const url = `/files/folder/${id}/download`;
+    const res = await fetch(url, {
+      headers: token ? { Authorization: token } : {},
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `${folderName.replace(/[\\/\?%*<>\|]/g, '_')}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   },
 };
 

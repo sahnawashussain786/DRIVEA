@@ -1,7 +1,10 @@
 import { clerkMiddleware, getAuth, clerkClient } from '@clerk/express';
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY || '';
 const CLERK_ACTIVE = Boolean(CLERK_SECRET_KEY);
+const LEGACY_SECRET = process.env.JWT_SECRET || 'drivea_dev_secret_change_me';
 
 // ---------------------------------------------------------------------------
 // Clerk middleware — mounted app-wide when Clerk is configured.
@@ -35,8 +38,7 @@ export function requireAuth(req, res, next) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const SECRET = process.env.JWT_SECRET || 'drivea_dev_secret_change_me';
-    const payload = require('jsonwebtoken').verify(token, SECRET);
+    const payload = jwt.verify(token, LEGACY_SECRET);
     req.userId = payload.sub;
     return next();
   } catch {
@@ -54,8 +56,6 @@ export function getUserId(req) {
 // In legacy (non-Clerk) mode this just returns the existing document by _id.
 // ---------------------------------------------------------------------------
 export async function ensureUser(userId, clerkUser) {
-  const User = require('../models/User.js').default;
-
   if (!CLERK_ACTIVE) {
     // Legacy JWT path: userId is the mongo _id.
     return userId ? (await User.findById(userId)) : null;
@@ -116,7 +116,6 @@ export function userFilterFor(userId) {
 
 export async function updateUserStorage(userId, delta) {
   if (!CLERK_ACTIVE && !userId) return;
-  const User = require('../models/User.js').default;
   // In legacy mode userId is the mongo _id; in Clerk mode it's the clerkId.
   const filter = userFilterFor(userId);
   await User.updateOne(filter, { $inc: { storageUsed: delta } });

@@ -1,20 +1,21 @@
-import fs from 'fs';
-import path from 'path';
-import { put, del as blobDel, get as blobGet } from '@vercel/blob';
-import { pipeline } from 'stream/promises';
+import fs from "fs";
+import path from "path";
+import { put, del as blobDel, get as blobGet } from "@vercel/blob";
+import { pipeline } from "stream/promises";
 
-const DEV_UPLOAD_DIR = path.join(process.cwd(), '.uploads');
+const DEV_UPLOAD_DIR = path.join(process.cwd(), ".uploads");
 
 export const hasBlobStorage = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
-const BLOB_PREFIX = 'drivea';
+const BLOB_PREFIX = "drivea";
 
 function ensureDevDir() {
-  if (!fs.existsSync(DEV_UPLOAD_DIR)) fs.mkdirSync(DEV_UPLOAD_DIR, { recursive: true });
+  if (!fs.existsSync(DEV_UPLOAD_DIR))
+    fs.mkdirSync(DEV_UPLOAD_DIR, { recursive: true });
 }
 
 export function s3KeyFor(ownerId, fileName) {
-  const safe = fileName.replace(/[^\w.\-]+/g, '_').slice(-80);
+  const safe = fileName.replace(/[^\w.\-]+/g, "_").slice(-80);
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return `users/${ownerId}/${unique}-${safe}`;
 }
@@ -24,14 +25,14 @@ export async function storeFile(ownerId, fileName, buffer, mimeType) {
   const key = s3KeyFor(ownerId, fileName);
   if (hasBlobStorage()) {
     const { url } = await put(`${BLOB_PREFIX}/${key}`, buffer, {
-      access: 'public',
+      access: "public",
       contentType: mimeType,
       addRandomSuffix: false,
     });
     return { key, url, localPath: null };
   }
   ensureDevDir();
-  const localPath = path.join(DEV_UPLOAD_DIR, `${key.replace(/[\\/]/g, '__')}`);
+  const localPath = path.join(DEV_UPLOAD_DIR, `${key.replace(/[\\/]/g, "__")}`);
   fs.writeFileSync(localPath, buffer);
   return { key, url: null, localPath };
 }
@@ -45,7 +46,7 @@ export async function createUploadUrl(ownerId, fileName, contentType) {
   const key = s3KeyFor(ownerId, fileName);
   const buffer = Buffer.alloc(0); // we only need pathname/header hints; size unknown -> let client send
   const { url } = await put(`${BLOB_PREFIX}/${key}`, buffer, {
-    access: 'public',
+    access: "public",
     contentType,
     addRandomSuffix: false,
     multipart: true,
@@ -72,7 +73,7 @@ export async function deleteStored(fileDoc) {
       fs.unlinkSync(fileDoc.localPath);
     }
   } catch (err) {
-    console.error('Failed to delete stored object:', err.message);
+    console.error("Failed to delete stored object:", err.message);
   }
 }
 
@@ -92,26 +93,30 @@ export async function duplicateStoredFile(fileDoc, destOwnerId, destName) {
 
   if (fileDoc.blobUrl) {
     // Download source blob, re-upload under a new key.
-    const src = fileDoc.blobUrl.startsWith('http')
+    const src = fileDoc.blobUrl.startsWith("http")
       ? fileDoc.blobUrl
-      : `https://${process.env.VERCEL_BLOB_DOMAIN || 'drivea'}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
+      : `https://${process.env.VERCEL_BLOB_DOMAIN || "drivea"}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
     const srcBuffer = await blobGet(src).arrayBuffer();
-    const { url } = await put(`${BLOB_PREFIX}/${destKey}`, Buffer.from(srcBuffer), {
-      access: 'public',
-      contentType: fileDoc.mimeType,
-      addRandomSuffix: false,
-    });
+    const { url } = await put(
+      `${BLOB_PREFIX}/${destKey}`,
+      Buffer.from(srcBuffer),
+      {
+        access: "public",
+        contentType: fileDoc.mimeType,
+        addRandomSuffix: false,
+      },
+    );
     return { key: destKey, url, localPath: null };
   }
 
   // Local dev: copy the file on disk to a new path.
   if (!fileDoc.localPath || !fs.existsSync(fileDoc.localPath)) {
-    throw new Error('Source file content not available for copy');
+    throw new Error("Source file content not available for copy");
   }
   ensureDevDir();
   const destLocalPath = path.join(
     DEV_UPLOAD_DIR,
-    destKey.replace(/[\\/]/g, '__'),
+    destKey.replace(/[\\/]/g, "__"),
   );
   fs.mkdirSync(path.dirname(destLocalPath), { recursive: true });
   fs.copyFileSync(fileDoc.localPath, destLocalPath);
@@ -121,15 +126,28 @@ export async function duplicateStoredFile(fileDoc, destOwnerId, destName) {
 /** Read a stored file's content as a Buffer (blob download or local disk). */
 export async function readStoredAsBuffer(fileDoc) {
   if (fileDoc.blobUrl) {
-    const src =
-      fileDoc.blobUrl.startsWith('http')
-        ? fileDoc.blobUrl
-        : `https://${process.env.VERCEL_BLOB_DOMAIN || 'drivea'}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
+    const src = fileDoc.blobUrl.startsWith("http")
+      ? fileDoc.blobUrl
+      : `https://${process.env.VERCEL_BLOB_DOMAIN || "drivea"}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
     const buf = await blobGet(src).arrayBuffer();
     return Buffer.from(buf);
   }
   if (fileDoc.localPath && fs.existsSync(fileDoc.localPath)) {
     return fs.readFileSync(fileDoc.localPath);
   }
-  throw new Error('File content not available');
+  throw new Error("File content not available");
+}
+
+/** Return a readable stream for a stored file's content (blob or local disk). */
+export function fileContentStream(fileDoc) {
+  if (fileDoc.blobUrl) {
+    const src = fileDoc.blobUrl.startsWith("http")
+      ? fileDoc.blobUrl
+      : `https://${process.env.VERCEL_BLOB_DOMAIN || "drivea"}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
+    return blobGet(src).stream();
+  }
+  if (fileDoc.localPath && fs.existsSync(fileDoc.localPath)) {
+    return fs.createReadStream(fileDoc.localPath);
+  }
+  throw new Error("File content not available");
 }

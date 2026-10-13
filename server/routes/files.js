@@ -1,17 +1,23 @@
-import { Router } from 'express';
-import multer from 'multer';
-import File from '../models/File.js';
-import Folder from '../models/Folder.js';
-import User from '../models/User.js';
-import { requireAuth, ensureUser, updateUserStorage } from '../middleware/auth.js';
-import { connectDB } from '../config/db.js';
+import { Router } from "express";
+import multer from "multer";
+import File from "../models/File.js";
+import Folder from "../models/Folder.js";
+import User from "../models/User.js";
+import {
+  requireAuth,
+  ensureUser,
+  updateUserStorage,
+} from "../middleware/auth.js";
+import { connectDB } from "../config/db.js";
 import {
   storeFile,
   hasBlobStorage,
   readLocalFile,
   fileUrl,
   deleteStored,
-} from '../services/storage.js';
+  duplicateStoredFile,
+  fileContentStream,
+} from "../services/storage.js";
 
 const router = Router();
 const MAX_PER_FILE = 4.5 * 1024 * 1024 * 1024; // generous; Vercel caps request body anyway
@@ -24,16 +30,19 @@ const upload = multer({
 router.use(requireAuth);
 
 // List files (optionally in folder, search, sort) — excludes trashed
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   await connectDB();
   const query = { ownerId: req.userId, isTrashed: false };
-  if ('folder_id' in req.query) {
+  if ("folder_id" in req.query) {
     const raw = req.query.folder_id;
-    query.folderId = raw === 'null' || !raw ? null : raw;
+    query.folderId = raw === "null" || !raw ? null : raw;
   }
   let filter = query;
   if (req.query.search) {
-    const rx = new RegExp(String(req.query.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const rx = new RegExp(
+      String(req.query.search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      "i",
+    );
     filter = { ...query, name: rx };
   }
 
@@ -52,22 +61,24 @@ router.get('/', async (req, res) => {
 });
 
 // Register an already-uploaded object (browser-direct upload to Vercel Blob)
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   await connectDB();
   const user = await ensureUser(req.userId);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   const { name, mime_type, size, s3_key, blob_url, folder_id } = req.body || {};
   if (!name || !s3_key || !blob_url) {
-    return res.status(400).json({ error: 'name, s3_key and blob_url are required' });
+    return res
+      .status(400)
+      .json({ error: "name, s3_key and blob_url are required" });
   }
 
   const fileSize = Number(size) || 0;
   if (user.storageUsed + fileSize > user.storageLimit) {
-    return res.status(413).json({ error: 'Storage limit exceeded' });
+    return res.status(413).json({ error: "Storage limit exceeded" });
   }
 
-  let folderId = folder_id && folder_id !== 'null' ? folder_id : null;
+  let folderId = folder_id && folder_id !== "null" ? folder_id : null;
   if (folderId) {
     const folder = await Folder.findOne({ _id: folderId, ownerId: req.userId });
     if (!folder) folderId = null;
@@ -76,7 +87,7 @@ router.post('/register', async (req, res) => {
   const file = await File.create({
     name,
     originalName: name,
-    mimeType: mime_type || 'application/octet-stream',
+    mimeType: mime_type || "application/octet-stream",
     size: fileSize,
     s3Key: s3_key,
     blobUrl: blob_url,
@@ -90,16 +101,17 @@ router.post('/register', async (req, res) => {
 });
 
 // Multipart upload (primary path in dev, small files anywhere)
-router.post('/upload', upload.array('files', 20), async (req, res) => {
+router.post("/upload", upload.array("files", 20), async (req, res) => {
   await connectDB();
   const user = await ensureUser(req.userId);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   const incoming = req.files || [];
-  if (incoming.length === 0) return res.status(400).json({ error: 'No files provided' });
+  if (incoming.length === 0)
+    return res.status(400).json({ error: "No files provided" });
 
   const rawFolder = req.body?.folder_id;
-  let folderId = rawFolder && rawFolder !== 'null' ? rawFolder : null;
+  let folderId = rawFolder && rawFolder !== "null" ? rawFolder : null;
   if (folderId) {
     const folder = await Folder.findOne({ _id: folderId, ownerId: req.userId });
     if (!folder) folderId = null;
@@ -107,17 +119,22 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
 
   const totalSize = incoming.reduce((acc, f) => acc + f.size, 0);
   if (user.storageUsed + totalSize > user.storageLimit) {
-    return res.status(413).json({ error: 'Storage limit exceeded' });
+    return res.status(413).json({ error: "Storage limit exceeded" });
   }
 
   const stored = [];
   for (const f of incoming) {
-    const meta = await storeFile(req.userId, f.originalname, f.buffer, f.mimetype);
+    const meta = await storeFile(
+      req.userId,
+      f.originalname,
+      f.buffer,
+      f.mimetype,
+    );
     stored.push({
       ownerId: req.userId,
       name: f.originalname,
       originalName: f.originalname,
-      mimeType: f.mimetype || 'application/octet-stream',
+      mimeType: f.mimetype || "application/octet-stream",
       size: f.size,
       s3Key: meta.key,
       blobUrl: meta.url,
@@ -135,52 +152,56 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
 });
 
 // Download route (dev fallback for locally-stored files)
-router.get('/:id/download', async (req, res) => {
+router.get("/:id/download", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
   if (!file.localPath) {
     if (file.blobUrl) return res.redirect(file.blobUrl);
-    return res.status(404).json({ error: 'File content unavailable' });
+    return res.status(404).json({ error: "File content unavailable" });
   }
-  res.setHeader('Content-Type', file.mimeType);
+  res.setHeader("Content-Type", file.mimeType);
   res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${encodeURIComponent(file.originalName)}"`
+    "Content-Disposition",
+    `attachment; filename="${encodeURIComponent(file.originalName)}"`,
   );
   res.send(readLocalFile(file.localPath));
 });
 
 // Preview URL
-router.get('/:id/preview', async (req, res) => {
+router.get("/:id/preview", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
   const url = fileUrl(file);
   res.json({ preview_url: url, url, file });
 });
 
 // Rename
-router.patch('/:id/rename', async (req, res) => {
+router.patch("/:id/rename", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
   if (req.body?.name?.trim()) file.name = req.body.name.trim();
   await file.save();
   res.json({ file });
 });
 
 // Move to another folder
-router.patch('/:id/move', async (req, res) => {
+router.patch("/:id/move", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
 
   const raw = req.body?.target_folder ?? req.body?.target_folder_id;
-  const targetFolderId = raw === 'null' || !raw ? null : raw;
+  const targetFolderId = raw === "null" || !raw ? null : raw;
   if (targetFolderId) {
-    const folder = await Folder.findOne({ _id: targetFolderId, ownerId: req.userId });
-    if (!folder) return res.status(404).json({ error: 'Target folder not found' });
+    const folder = await Folder.findOne({
+      _id: targetFolderId,
+      ownerId: req.userId,
+    });
+    if (!folder)
+      return res.status(404).json({ error: "Target folder not found" });
     file.folderId = folder._id;
   } else {
     file.folderId = null;
@@ -190,28 +211,31 @@ router.patch('/:id/move', async (req, res) => {
 });
 
 // Trash (soft delete)
-router.delete('/:id', async (req, res) => {
+router.delete("/:id", async (req, res) => {
   await connectDB();
   const file = await File.findOneAndUpdate(
     { _id: req.params.id, ownerId: req.userId },
     { isTrashed: true, trashedAt: new Date() },
-    { new: true }
+    { new: true },
   );
-  if (!file) return res.status(404).json({ error: 'File not found' });
-  res.json({ message: 'File moved to trash' });
+  if (!file) return res.status(404).json({ error: "File not found" });
+  res.json({ message: "File moved to trash" });
 });
 
 // Restore
-router.post('/:id/restore', async (req, res) => {
+router.post("/:id/restore", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
 
   file.isTrashed = false;
   file.trashedAt = null;
   // If its folder is still trashed/nonexistent, surface the file at root
   if (file.folderId) {
-    const folder = await Folder.findOne({ _id: file.folderId, ownerId: req.userId });
+    const folder = await Folder.findOne({
+      _id: file.folderId,
+      ownerId: req.userId,
+    });
     if (!folder || folder.isTrashed) file.folderId = null;
   }
   await file.save();
@@ -219,25 +243,25 @@ router.post('/:id/restore', async (req, res) => {
 });
 
 // Permanently delete
-router.delete('/:id/permanent', async (req, res) => {
+router.delete("/:id/permanent", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
 
   await deleteStored(file);
   await updateUserStorage(req.userId, -Number(file.size || 0));
   await file.deleteOne();
-  res.json({ message: 'File permanently deleted' });
+  res.json({ message: "File permanently deleted" });
 });
 
 // Copy a file (real independent copy — charges storage, checks quota)
-router.post('/:id/copy', async (req, res) => {
+router.post("/:id/copy", async (req, res) => {
   await connectDB();
   const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
-  if (!file) return res.status(404).json({ error: 'File not found' });
+  if (!file) return res.status(404).json({ error: "File not found" });
 
   const targetFolderId =
-    req.body?.target_folder_id && req.body.target_folder_id !== 'null'
+    req.body?.target_folder_id && req.body.target_folder_id !== "null"
       ? req.body.target_folder_id
       : file.folderId?.toString() || null;
   if (targetFolderId) {
@@ -246,24 +270,25 @@ router.post('/:id/copy', async (req, res) => {
       ownerId: req.userId,
       isTrashed: false,
     });
-    if (!folder) return res.status(404).json({ error: 'Target folder not found' });
+    if (!folder)
+      return res.status(404).json({ error: "Target folder not found" });
   }
 
-  const wantName = (req.body?.name || '').trim();
+  const wantName = (req.body?.name || "").trim();
   const name = wantName || `Copy of ${file.originalName}`;
 
   const user = await ensureUser(req.userId);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
   if (user.storageUsed + file.size > user.storageLimit) {
-    return res.status(413).json({ error: 'Storage limit exceeded' });
+    return res.status(413).json({ error: "Storage limit exceeded" });
   }
 
   let meta;
   try {
     meta = await duplicateStoredFile(file, req.userId, name);
   } catch (err) {
-    console.error('[copy] duplicateStoredFile failed:', err.message);
-    return res.status(500).json({ error: 'Failed to copy file content' });
+    console.error("[copy] duplicateStoredFile failed:", err.message);
+    return res.status(500).json({ error: "Failed to copy file content" });
   }
 
   const copy = await File.create({
@@ -279,6 +304,84 @@ router.post('/:id/copy', async (req, res) => {
   });
   await updateUserStorage(req.userId, file.size);
   res.status(201).json({ file: copy });
+});
+
+// Download an entire folder as a zip (streamed)
+router.get("/folder/:id/download", async (req, res) => {
+  await connectDB();
+  const folder = await Folder.findOne({
+    _id: req.params.id,
+    ownerId: req.userId,
+    isTrashed: false,
+  });
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+  // Collect the folder tree ids
+  const descendantIds = await Folder.find({
+    ownerId: req.userId,
+    path: folder._id,
+  }).select("_id");
+  const folderIdSet = new Set([folder._id, ...descendantIds.map((d) => d._id)]);
+
+  const files = await File.find({
+    ownerId: req.userId,
+    folderId: { $in: [...folderIdSet] },
+    isTrashed: false,
+  }).sort({ name: 1 });
+
+  if (files.length === 0) {
+    // Empty folder: send an empty zip.
+  }
+
+  if (files.length > 10000) {
+    return res.status(400).json({
+      error: "Folder is too large to download as zip (more than 10,000 files).",
+    });
+  }
+
+  const archive = await import("archiver").then((m) => m.default || m.Archiver);
+  const zip =
+    typeof archive === "function"
+      ? archive("zip", { zlib: { level: 5 } })
+      : new archive("zip", { zlib: { level: 5 } });
+
+  res.setHeader("Content-Type", "application/zip");
+  const safeName = (folder.name || "folder")
+    .replace(/[^\w.\-]/g, "_")
+    .slice(0, 80);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${encodeURIComponent(safeName + ".zip")}"`,
+  );
+
+  const done = new Promise((resolve, reject) => {
+    zip.on("error", reject);
+    zip.on("end", resolve);
+  });
+
+  zip.pipe(res);
+  let failed = false;
+
+  for (const f of files) {
+    if (failed) break;
+    try {
+      const stream = fileContentStream(f);
+      zip.append(stream, { name: f.name });
+    } catch (err) {
+      failed = true;
+      zip.destroy(err);
+    }
+  }
+
+  zip.finalize();
+
+  try {
+    await done;
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to build zip" });
+    }
+  }
 });
 
 export default router;

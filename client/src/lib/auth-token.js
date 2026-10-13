@@ -1,9 +1,9 @@
 /**
  * Bridge between Clerk's React auth hook and the axios API client.
  *
- * Clerk's useAuth() hooks run inside React, so they can't be called directly
- * from the plain axios interceptor. This module holds mutable suppliers that a
- * top-level component (ApiTokenSync) keeps in sync on every render.
+ * Clerk's useAuth().getToken() is async (returns a Promise<string>), so the
+ * axios request interceptor must await it. This module holds mutable suppliers
+ * that a top-level component keeps in sync on every render.
  */
 let tokenSupplier = null;
 let signOutSupplier = null;
@@ -16,9 +16,9 @@ export const setSignOutSupplier = (fn) => {
   signOutSupplier = fn;
 };
 
-export const getAuthHeaders = () => {
+export const getAuthHeaders = async () => {
   try {
-    const token = tokenSupplier?.();
+    const token = await tokenSupplier?.();
     return token ? { Authorization: `Bearer ${token}` } : {};
   } catch {
     return {};
