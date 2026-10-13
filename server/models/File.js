@@ -14,6 +14,7 @@ const fileSchema = new mongoose.Schema(
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     isTrashed: { type: Boolean, default: false, index: true },
     trashedAt: { type: Date, default: null },
+    isStarred: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );

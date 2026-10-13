@@ -9,6 +9,7 @@ const folderSchema = new mongoose.Schema(
     path: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     isTrashed: { type: Boolean, default: false, index: true },
     trashedAt: { type: Date, default: null },
+    isStarred: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );

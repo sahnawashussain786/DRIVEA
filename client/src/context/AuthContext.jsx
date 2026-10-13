@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import {
   ClerkProvider,
   useAuth as useClerkAuth,
@@ -8,7 +14,11 @@ import {
   SignUp as ClerkSignUpComponent,
 } from "@clerk/clerk-react";
 import { authApi } from "../assets/api";
-import { setTokenSupplier, setSignOutSupplier, clearTokenSupplier } from "../lib/auth-token";
+import {
+  setTokenSupplier,
+  setSignOutSupplier,
+  clearTokenSupplier,
+} from "../lib/auth-token";
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -19,12 +29,14 @@ export const useAuth = () => useContext(AuthContext);
 // so the app doesn't throw, and instead shows a clear placeholder.
 // ---------------------------------------------------------------------------
 const ClerkConfigContext = createContext({ isConfigured: false });
-export const useClerkConfigured = () => useContext(ClerkConfigContext).isConfigured;
+export const useClerkConfigured = () =>
+  useContext(ClerkConfigContext).isConfigured;
 
 function mergeUserProfile(clerkUser, serverUser) {
   return {
     id: clerkUser?.id || serverUser?.clerk_id || serverUser?.id || null,
-    name: clerkUser?.fullName || clerkUser?.firstName || serverUser?.name || "User",
+    name:
+      clerkUser?.fullName || clerkUser?.firstName || serverUser?.name || "User",
     email: clerkUser?.emailAddress || serverUser?.email || null,
     imageUrl: clerkUser?.imageUrl || null,
     storage_used: Number(serverUser?.storage_used || 0),
@@ -88,12 +100,9 @@ function AuthProviderInner({ children }) {
     setUser(null);
   }, [clerkAuth]);
 
-  const updateUser = useCallback(
-    (patch) => {
-      setUser((prev) => (prev ? { ...prev, ...patch } : prev));
-    },
-    [],
-  );
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -214,8 +223,8 @@ export const ClerkSignIn = (props) => (
           Authentication is not configured yet.
         </p>
         <p className="text-xs text-slate-400">
-          Add your Clerk publishable key to <code>client/.env.local</code> (
-          <code>VITE_CLERK_PUBLISHABLE_KEY</code>) to sign in.
+          Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> in your Clerk project’s
+          environment variables (Production scope) and redeploy.
         </p>
       </div>
     }
@@ -234,8 +243,8 @@ export const ClerkSignUp = (props) => (
           Authentication is not configured yet.
         </p>
         <p className="text-xs text-slate-400">
-          Add your Clerk publishable key to <code>client/.env.local</code> (
-          <code>VITE_CLERK_PUBLISHABLE_KEY</code>) to create an account.
+          Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> in your Clerk project’s
+          environment variables (Production scope) and redeploy.
         </p>
       </div>
     }
