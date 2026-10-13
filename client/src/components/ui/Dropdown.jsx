@@ -22,8 +22,12 @@ export function Dropdown({ trigger, children, align = "right", className = "" })
 
             {isOpen && (
                 <div
-                    className={`absolute ${alignStyle} mt-2 w-56 rounded-xl bg-white border border-slate-200 py-1.5 z-50 animate-fade-in ${className}`}
+                    className={`absolute ${alignStyle} mt-2 w-56 rounded-xl bg-white border border-slate-200 py-1.5 z-50 animate-fade-in shadow-sm overflow-hidden ${className}`}
                     onClick={() => setIsOpen(false)}
+                    style={{
+                        // Keep dropdowns fully visible on small screens
+                        ...(window.innerWidth < 400 ? { maxWidth: "calc(100vw - 1.5rem)" } : {}),
+                    }}
                 >
                     {children}
                 </div>

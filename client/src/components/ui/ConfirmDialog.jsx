@@ -13,14 +13,13 @@ export function ConfirmDialog({
     isLoading = false,
 }) {
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title}>
-            <div className="flex items-center gap-4 mb-6">
-                <AlertCircleIcon className="size-8 text-red-600 bg-red-50 p-1.5 rounded-full shrink-0" />
+        <Modal isOpen={isOpen} onClose={onClose} title={title}>                <div className="flex items-center gap-3 mb-5">
+                <AlertCircleIcon className="size-7 text-red-600 bg-red-50 p-1.5 rounded-full shrink-0" />
                 <div>
                     <p className="text-sm text-slate-600 leading-relaxed">{message}</p>
                 </div>
             </div>
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-2 sm:gap-3 pt-4 border-t border-slate-200">
                 <Button variant="ghost" onClick={onClose} disabled={isLoading}>
                     Cancel
                 </Button>

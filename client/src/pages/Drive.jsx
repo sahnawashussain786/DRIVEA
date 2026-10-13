@@ -251,31 +251,38 @@ const Drive = () => {
     /* ------------------------------ Layout ------------------------------ */
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800 flex">
-            {/* Sidebar */}
-            <aside className="w-64 shrink-0 hidden md:flex flex-col border-r border-slate-200 bg-white p-4 sticky top-0 h-screen">
-                <Link to="/" className="flex items-center gap-2 px-2 py-1 mb-6">
+        <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row">
+            {/* Sidebar - desktop persistent; mobile collapsed to bottom bar */}
+            <aside className="w-full shrink-0 md:w-64 md:shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 bg-white md:bg-transparent p-4 md:p-4">
+                <div className="flex items-center gap-2 px-2 py-1 mb-4 md:mb-6">
                     <img className="max-h-8" src="/logo.svg" alt="Drivea" />
                     <span className="text-xl font-semibold tracking-tight">Drivea</span>
-                </Link>
+                </div>
 
-                <Button
-                    icon={UploadIcon}
-                    onClick={() => document.getElementById("drive-upload-input")?.click()}
-                    className="w-full mb-2"
-                >
-                    Upload file
-                </Button>
-                <Button
-                    variant="secondary"
-                    icon={FolderPlusIcon}
-                    onClick={() => setShowNewFolder(true)}
-                    className="w-full mb-6"
-                >
-                    New folder
-                </Button>
+                {/* Mobile-only quick upload + new folder buttons (desktop keeps sidebar buttons) */}
+                <div className="flex gap-2 mb-3 md:hidden">
+                    <input id="drive-upload-input-mobile" type="file" multiple hidden />
+                    <Button
+                        icon={UploadIcon}
+                        onClick={() => document.getElementById("drive-upload-input-mobile")?.click()}
+                        size="sm"
+                        className="flex-1 h-9 text-xs"
+                    >
+                        Upload file
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        icon={FolderPlusIcon}
+                        onClick={() => setShowNewFolder(true)}
+                        size="sm"
+                        className="flex-1 h-9 text-xs"
+                    >
+                        New folder
+                    </Button>
+                </div>
 
-                <nav className="space-y-1 mb-8">
+                {/* Desktop sidebar nav */}
+                <nav className="hidden md:flex space-y-1 mb-4">
                     {NAV_ITEMS.map(({ label, to, Icon }) => {
                         const active = to === "/" ? location.pathname === "/" || location.pathname.startsWith("/f/") : location.pathname === to;
                         return (
@@ -295,7 +302,27 @@ const Drive = () => {
                     })}
                 </nav>
 
-                <div className="mt-auto">
+                {/* Desktop-only buttons in sidebar */}
+                <div className="hidden md:flex md:space-y-2 mb-6">
+                    <Button
+                        icon={UploadIcon}
+                        onClick={() => document.getElementById("drive-upload-input")?.click()}
+                        className="w-full mb-2"
+                    >
+                        Upload file
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        icon={FolderPlusIcon}
+                        onClick={() => setShowNewFolder(true)}
+                        className="w-full"
+                    >
+                        New folder
+                    </Button>
+                </div>
+
+                {/* Desktop storage card + user row (transparent on mobile since main bg is visible) */}
+                <div className="hidden md:block mt-auto">
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                         <div className="flex items-center gap-2 mb-2 text-sm font-medium">
                             <HardDriveIcon className="size-4 text-slate-500" /> Storage
@@ -330,18 +357,18 @@ const Drive = () => {
             </aside>
 
             {/* Main */}
-            <main className="flex-1 min-w-0 flex flex-col" {...getRootProps()}>
+            <div className="flex-1 min-w-0 flex flex-col" {...getRootProps()}>
                 {/* Top bar */}
-                <div className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center gap-3">
-                    <img className="max-h-8 md:hidden" src="/logo.svg" alt="Drivea" />
+                <div className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur border-b border-slate-200 px-3 sm:px-4 py-2.5 flex items-center gap-2 sm:gap-3">
+                    <img className="max-h-7 md:max-h-8" src="/logo.svg" alt="Drivea" />
 
-                    <div className="relative flex-1 max-w-md">
+                    <div className="relative flex-1 max-w-sm md:max-w-md">
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                         <input
                             value={search}
                             onChange={(e) => handleSearchChange(e.target.value)}
                             placeholder="Search your files…"
-                            className="w-full bg-white border border-slate-200 rounded-xl text-sm pl-9 pr-9 py-2.5 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 placeholder-slate-400"
+                            className="w-full bg-white border border-slate-200 rounded-xl text-sm pl-9 pr-9 py-2 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 placeholder-slate-400"
                         />
                         {search && (
                             <button
@@ -353,12 +380,13 @@ const Drive = () => {
                         )}
                     </div>
 
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="ml-auto flex items-center gap-1">
+                        {/* Sort: show label on all sizes, dropdown always available */}
                         <Dropdown
                             trigger={
-                                <Button variant="ghost" size="sm" icon={SortAscIcon} className="hidden sm:inline-flex">
-                                    {SORT_OPTIONS.find((o) => o.value === sort)?.label}
-                                </Button>
+                                <button type="button" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition" title="Sort">
+                                    <SortAscIcon className="size-4" />
+                                </button>
                             }
                         >
                             {SORT_OPTIONS.map((opt) => (
@@ -368,7 +396,8 @@ const Drive = () => {
                             ))}
                         </Dropdown>
 
-                        <div className="hidden sm:flex items-center rounded-xl border border-slate-200 bg-white p-0.5">
+                        {/* View toggle: always visible, touch-friendly */}
+                        <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5">
                             {[
                                 ["grid", LayoutGridIcon],
                                 ["list", ListIcon],
@@ -379,33 +408,34 @@ const Drive = () => {
                                     className={`p-1.5 rounded-lg transition ${
                                         view === v ? "bg-slate-100 text-slate-800" : "text-slate-400 hover:text-slate-700"
                                     }`}
+                                    title={v === "grid" ? "Grid view" : "List view"}
                                 >
                                     <Icon className="size-4" />
                                 </button>
                             ))}
                         </div>
 
+                        {/* Upload button: always visible as a small button on top bar */}
                         <input id="drive-upload-input" type="file" multiple hidden {...getInputProps()} />
                         <Button
                             icon={UploadIcon}
                             onClick={() => document.getElementById("drive-upload-input")?.click()}
                             size="sm"
-                            className="lg:hidden"
                         >
-                            <span className="hidden sm:inline">Upload</span>
+                            Upload
                         </Button>
                     </div>
                 </div>
 
                 {/* Breadcrumbs */}
-                <div className="px-4 sm:px-8 pt-5 pb-4 flex items-center gap-1.5 text-sm">
+                <div className="px-3 sm:px-4 pt-4 pb-3 flex items-center gap-1 text-xs sm:text-sm flex-wrap">
                     <Link to="/" className="font-medium text-slate-700 hover:text-orange-700 flex items-center gap-1.5">
                         My Drive
                     </Link>
                     {breadcrumbs.map((b) => (
                         <React.Fragment key={b.id}>
-                            <ChevronRightIcon className="size-3.5 text-slate-300" />
-                            <Link to={`/f/${b.id}`} className="text-slate-500 hover:text-orange-700">
+                            <ChevronRightIcon className="size-3 text-slate-300" />
+                            <Link to={`/f/${b.id}`} className="text-slate-500 hover:text-orange-700 truncate max-w-[140px] sm:max-w-none" title={b.name}>
                                 {b.name}
                             </Link>
                         </React.Fragment>
@@ -413,7 +443,7 @@ const Drive = () => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 px-4 sm:px-8 pb-16">
+                <div className="flex-1 px-3 sm:px-4 pb-24 md:pb-16">
                     {isFetching ? (
                         <div className="flex items-center justify-center py-24">
                             <Spinner size="lg" />
@@ -425,27 +455,27 @@ const Drive = () => {
                                 <p className="text-sm font-medium text-orange-800">Drop your files here</p>
                             </div>
                         ) : (
-                            <div
-                                onDragOver={(e) => e.preventDefault()}
-                                className={`rounded-2xl border-2 border-dashed p-10 transition ${
-                                    isDragActive ? "border-orange-400 bg-orange-50/50" : "border-slate-200 bg-white/60"
-                                }`}
-                            >
-                                <EmptyState
-                                    title="Nothing here yet"
-                                    description="Drag & drop files anywhere, or use the buttons above to upload and create folders."
-                                    action={
-                                        <div className="flex gap-3">
-                                            <Button icon={UploadIcon} onClick={() => document.getElementById("drive-upload-input")?.click()}>
-                                                Upload file
-                                            </Button>
-                                            <Button variant="secondary" icon={FolderPlusIcon} onClick={() => setShowNewFolder(true)}>
-                                                New folder
-                                            </Button>
-                                        </div>
-                                    }
-                                />
-                            </div>
+                        <div
+                            onDragOver={(e) => e.preventDefault()}
+                            className={`rounded-2xl border-2 border-dashed p-6 sm:p-10 transition ${
+                                isDragActive ? "border-orange-400 bg-orange-50/50" : "border-slate-200 bg-white/60"
+                            }`}
+                        >
+                            <EmptyState
+                                title="Nothing here yet"
+                                description="Drag & drop files anywhere, or use the buttons above to upload and create folders."
+                                action={
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <Button icon={UploadIcon} onClick={() => document.getElementById("drive-upload-input")?.click()} className="w-full sm:w-auto">
+                                            Upload file
+                                        </Button>
+                                        <Button variant="secondary" icon={FolderPlusIcon} onClick={() => setShowNewFolder(true)} className="w-full sm:w-auto">
+                                            New folder
+                                        </Button>
+                                    </div>
+                                }
+                            />
+                        </div>
                         )
                     ) : (
                         <>
@@ -453,17 +483,17 @@ const Drive = () => {
                                 <>
                                     <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Folders</h3>
                                     {view === "grid" ? (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-8">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-6">
                                             {folders.map((f) => (
                                                 <div
                                                     key={f.id}
                                                     onClick={() => navigate(`/f/${f.id}`)}
-                                                    className="group relative flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-orange-300 hover:shadow-sm cursor-pointer transition"
+                                                    className="group relative flex items-start gap-2.5 p-2.5 sm:p-3 rounded-2xl bg-white border border-slate-200 hover:border-orange-300 hover:shadow-sm cursor-pointer transition"
                                                 >
-                                                    <FolderIcon className="size-8 shrink-0 text-orange-500 fill-orange-50" />
-                                                    <div className="min-w-0">
+                                                    <FolderIcon className="size-7 sm:size-8 shrink-0 text-orange-500 fill-orange-50 mt-0.5" />
+                                                    <div className="min-w-0 flex-1">
                                                         <p className="text-sm font-medium truncate" title={f.name}>{f.name}</p>
-                                                        <p className="text-[11px] text-slate-400">{fmtDate(f.created_at)}</p>
+                                                        <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(f.created_at)}</p>
                                                     </div>
                                                     <ItemDropdown
                                                         item={f}
@@ -476,16 +506,16 @@ const Drive = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden mb-8">
+                                        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden mb-6">
                                             {folders.map((f, i) => (
                                                 <div
                                                     key={f.id}
                                                     onClick={() => navigate(`/f/${f.id}`)}
-                                                    className={`group relative flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer ${i > 0 ? "border-t border-slate-200" : ""}`}
+                                                    className={`group relative flex items-center gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 hover:bg-slate-50 cursor-pointer ${i > 0 ? "border-t border-slate-200" : ""}`}
                                                 >
-                                                    <FolderIcon className="size-5 text-orange-500" />
-                                                    <p className="text-sm font-medium truncate flex-1">{f.name}</p>
-                                                    <p className="text-xs text-slate-400 hidden sm:block w-24">{fmtDate(f.created_at)}</p>
+                                                    <FolderIcon className="size-5 text-orange-500 shrink-0" />
+                                                    <p className="text-sm font-medium truncate flex-1 min-w-0">{f.name}</p>
+                                                    <p className="text-xs text-slate-400 w-20 sm:w-24 shrink-0">{fmtDate(f.created_at)}</p>
                                                     <ItemDropdown
                                                         item={f}
                                                         onShare={(it) => handleShare({ ...it, type: "folder" })}
@@ -504,14 +534,14 @@ const Drive = () => {
                                 <>
                                     <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Files</h3>
                                     {view === "grid" ? (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                                             {files.map((f) => (
                                                 <div
                                                     key={f.id}
                                                     onClick={() => openPreview(f)}
-                                                    className="group relative flex flex-col p-3 rounded-2xl bg-white border border-slate-200 hover:border-orange-300 hover:shadow-sm cursor-pointer transition"
+                                                    className="group relative flex flex-col p-2.5 sm:p-3 rounded-2xl bg-white border border-slate-200 hover:border-orange-300 hover:shadow-sm cursor-pointer transition"
                                                 >
-                                                    <div className="h-24 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-3 relative overflow-hidden">
+                                                    <div className="h-20 sm:h-24 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-2.5 relative overflow-hidden">
                                                         {f.mime_type?.startsWith("image/") ? (
                                                             <img
                                                                 src={f.blob_url || `/api/files/${f.id}/download`}
@@ -520,11 +550,11 @@ const Drive = () => {
                                                                 onError={(e) => { e.currentTarget.style.display = "none"; }}
                                                             />
                                                         ) : null}
-                                                        {!f.mime_type?.startsWith("image/") && getFileIcon(f.mime_type, "size-9")}
+                                                        {!f.mime_type?.startsWith("image/") && getFileIcon(f.mime_type, "size-8 sm:size-9")}
                                                     </div>
                                                     <p className="text-sm font-medium truncate" title={f.name}>{f.name}</p>
-                                                    <p className="text-[11px] text-slate-400">{formatBytes(f.size)} · {fmtDate(f.created_at)}</p>
-                                                    <div className="absolute right-1.5 top-1.5">
+                                                    <p className="text-[11px] text-slate-400 mt-0.5">{formatBytes(f.size)} · {fmtDate(f.created_at)}</p>
+                                                    <div className="absolute right-1 top-1 sm:right-1.5 sm:top-1.5">
                                                         <ItemDropdown
                                                             item={f}
                                                             onPreview={openPreview}
@@ -543,12 +573,12 @@ const Drive = () => {
                                                 <div
                                                     key={f.id}
                                                     onClick={() => openPreview(f)}
-                                                    className={`group relative flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer ${i > 0 ? "border-t border-slate-200" : ""}`}
+                                                    className={`group relative flex items-center gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 hover:bg-slate-50 cursor-pointer ${i > 0 ? "border-t border-slate-200" : ""}`}
                                                 >
-                                                    {getFileIcon(f.mime_type, "size-5")}
-                                                    <p className="text-sm font-medium truncate flex-1">{f.name}</p>
-                                                    <p className="text-xs text-slate-400 w-20 hidden sm:block">{formatBytes(f.size)}</p>
-                                                    <p className="text-xs text-slate-400 w-24 hidden md:block">{fmtDate(f.created_at)}</p>
+                                                    {getFileIcon(f.mime_type, "size-5 shrink-0")}
+                                                    <p className="text-sm font-medium truncate flex-1 min-w-0">{f.name}</p>
+                                                    <p className="text-xs text-slate-400 w-16 sm:w-20 shrink-0">{formatBytes(f.size)}</p>
+                                                    <p className="text-xs text-slate-400 w-20 sm:w-24 shrink-0 hidden sm:block">{fmtDate(f.created_at)}</p>
                                                     <ItemDropdown
                                                         item={f}
                                                         onPreview={openPreview}
@@ -566,9 +596,9 @@ const Drive = () => {
                         </>
                     )}
 
-                    {/* Upload overlay */}
+                    {/* Upload overlay - mobile-friendly: fixed to bottom-center, touch-readable */}
                     {isUploading && (
-                        <div className="fixed bottom-6 right-6 z-40 w-72 bg-white border border-slate-200 rounded-2xl shadow-lg p-4 animate-slide-up">
+                        <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm sm:w-72 bg-white border border-slate-200 rounded-2xl shadow-lg p-4 animate-slide-up">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium">Uploading…</span>
                                 <Spinner size="sm" />
@@ -584,7 +614,51 @@ const Drive = () => {
                         </div>
                     )}
                 </div>
-            </main>
+            </div>
+
+            {/* Mobile bottom navigation bar */}
+            <nav className="md:hidden flex items-center border-t border-slate-200 bg-white px-2 py-1 gap-1 shrink-0">
+                {NAV_ITEMS.map(({ label, to, Icon }) => {
+                    const active = to === "/" ? location.pathname === "/" || location.pathname.startsWith("/f/") : location.pathname === to;
+                    return (
+                        <Link
+                            key={to}
+                            to={to}
+                            className={`flex-1 flex items-center justify-center gap-2 px-2 py-2 rounded-xl text-xs transition ${
+                                active
+                                    ? "bg-orange-600/10 text-orange-700 font-medium"
+                                    : "text-slate-500 hover:bg-slate-100"
+                            }`}
+                        >
+                            <Icon className="size-4" />
+                            {label}
+                        </Link>
+                    );
+                })}
+            </nav>
+
+            {/* Mobile floating storage + user chip */}
+            <div className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center justify-between px-3 py-2 bg-white border-t border-slate-200">
+                <div className="flex items-center gap-2 text-xs">
+                    <HardDriveIcon className="size-3.5 text-slate-500" />
+                    <span className="truncate font-medium">{formatBytes(user?.storage_used || 0)} / {formatBytes(user?.storage_limit || 0)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 shrink-0 rounded-full bg-orange-600/15 text-orange-700 text-[10px] font-semibold flex items-center justify-center">
+                        {(user?.name || "?").slice(0, 1).toUpperCase()}
+                    </div>
+                    <button
+                        onClick={async () => {
+                            await logout();
+                            navigate("/login");
+                        }}
+                        title="Log out"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                    >
+                        <LogOutIcon className="size-4" />
+                    </button>
+                </div>
+            </div>
 
             {/* ------------------------------ Modals ------------------------------ */}
 

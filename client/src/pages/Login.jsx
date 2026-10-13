@@ -53,43 +53,45 @@ const Login = ({ mode = "login" }) => {
     return (
         <div className="min-h-screen text-zinc-900 flex flex-col md:flex-row">
             {/* Left hero brand panel */}
-            <div className="md:w-1/2 p-8 md:p-12 lg:p-16 bg-linear-to-br from-orange-50 via-zinc-100 to-red-50 border-b md:border-b-0 md:border-r border-zinc-200 flex flex-col justify-between relative overflow-hidden">
-                <div className="relative z-10 flex items-center gap-3">
-                    <img className="max-h-9" src="/logo.svg" alt="Drivea logo" />
-                    <span className="text-2xl font-semibold tracking-tight">Drivea</span>
-                </div>
-
-                <div className="relative z-10 py-10 md:py-0">
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-3">
-                        Your cloud drive,<br />beautifully simple.
-                    </h1>
-                    <p className="text-zinc-500 max-w-md mb-10">
-                        Drag, drop, and share your files from anywhere. Everything you need to store
-                        and manage your data — free to start.
-                    </p>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        {FEATURES.map(({ Icon, title, desc }) => (
-                            <div key={title} className="flex gap-3 p-4 rounded-xl bg-white/70 border border-zinc-200 backdrop-blur">
-                                <div className="size-9 shrink-0 rounded-lg bg-orange-600/10 text-orange-600 flex items-center justify-center">
-                                    <Icon className="size-4.5" />
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium">{title}</div>
-                                    <div className="text-xs text-zinc-500 mt-0.5">{desc}</div>
-                                </div>
-                            </div>
-                        ))}
+            <div className="relative flex-1 bg-linear-to-br from-orange-50 via-zinc-100 to-red-50 border-b md:border-b-0 md:border-r border-zinc-200 flex flex-col overflow-hidden">
+                <div className="p-6 md:p-12 lg:p-16 flex flex-col justify-between min-h-[50vh] md:min-h-screen">
+                    <div className="flex items-center gap-3">
+                        <img className="max-h-8" src="/logo.svg" alt="Drivea logo" />
+                        <span className="text-xl md:text-2xl font-semibold tracking-tight">Drivea</span>
                     </div>
-                </div>
 
-                <div className="relative z-10 hidden md:flex items-center gap-6 text-xs text-zinc-400">
-                    <span className="flex items-center gap-1.5"><HardDriveIcon className="size-3.5" /> 1 GB free storage</span>
-                    <span className="flex items-center gap-1.5"><FolderIcon className="size-3.5" /> Folders & trash</span>
+                    <div className="mt-auto pt-8 md:pt-0">
+                        <h1 className="text-2xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-3">
+                            Your cloud drive,<br />beautifully simple.
+                        </h1>
+                        <p className="text-zinc-500 max-w-md text-sm md:text-base mb-6 md:mb-10">
+                            Drag, drop, and share your files from anywhere. Everything you need to store
+                            and manage your data — free to start.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                            {FEATURES.map(({ Icon, title, desc }) => (
+                                <div key={title} className="flex gap-3 p-3 md:p-4 rounded-xl bg-white/70 border border-zinc-200 backdrop-blur">
+                                    <div className="size-8 md:size-9 shrink-0 rounded-lg bg-orange-600/10 text-orange-600 flex items-center justify-center">
+                                        <Icon className="size-4" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-medium">{title}</div>
+                                        <div className="text-xs text-zinc-500 mt-0.5">{desc}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs text-zinc-400 md:hidden">
+                        <span className="flex items-center gap-1.5"><HardDriveIcon className="size-3.5" /> 1 GB free</span>
+                        <span className="flex items-center gap-1.5"><FolderIcon className="size-3.5" /> Folders & trash</span>
+                    </div>
                 </div>
             </div>
 
             {/* Right auth form */}
-            <div className="md:w-1/2 flex items-center justify-center p-8 md:p-12 bg-white">
+            <div className="flex items-center justify-center p-4 sm:p-8 md:p-12 bg-white md:w-1/2">
                 <div className="w-full max-w-sm">
                     <div className="mb-8">
                         <div className="size-11 rounded-xl bg-orange-600 text-white flex items-center justify-center mb-4 shadow-sm">

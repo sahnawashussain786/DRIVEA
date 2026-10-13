@@ -2,12 +2,45 @@
 @import "tailwindcss";
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: #f8fafc;
     color: #0f172a;
+    min-height: 100dvh;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
   }
 
-  /* Custom scrollbar */
+  /* Make form controls and interactive elements feel native on touch devices */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  button,
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Prevent pull-to-refresh on the app shell so in-app scrolls feel contained */
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+
+  /* Tap targets: ensure icon-only buttons are at least 44px on touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    button.p-1,
+    button.p-1\.5 {
+      min-width: 44px;
+      min-height: 44px;
+    }
+  }
+
+  /* Custom scrollbar - thin everywhere, slightly taller on touch for easier grab */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -23,10 +56,26 @@
     background: rgba(100, 116, 139, 0.6);
   }
 
+  @media (hover: none) and (pointer: coarse) {
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.5);
+    }
+  }
+
   /* Global No Shadows Rule */
   *, ::before, ::after {
     box-shadow: none !important;
     font-family: 'Urbanist', sans-serif;
+  }
+
+  /* Keep 100% widths honest on small screens and nested scroll containers */
+  img, video, iframe, svg {
+    max-width: 100%;
+    height: auto;
   }
 }
 

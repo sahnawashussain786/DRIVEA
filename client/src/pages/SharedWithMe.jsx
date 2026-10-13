@@ -48,14 +48,14 @@ const SharedWithMe = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row">
+        <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row relative">
             {/* Sidebar */}
-            <aside className="w-full md:w-64 shrink-0 md:flex flex-col border-b md:border-b-0 md:border-r border-slate-200 bg-white p-4">
-                <Link to="/" className="flex items-center gap-2 px-2 py-1 mb-6">
+            <aside className="w-full md:w-64 shrink-0 md:flex flex-col border-b md:border-b-0 md:border-r border-slate-200 bg-white md:bg-transparent p-4">
+                <Link to="/" className="flex items-center gap-2 px-2 py-1 mb-4 md:mb-6">
                     <img className="max-h-8" src="/logo.svg" alt="Drivea" />
                     <span className="text-xl font-semibold tracking-tight">Drivea</span>
                 </Link>
-                <nav className="space-y-1 mb-0 md:mb-auto">
+                <nav className="space-y-1">
                     <Link to="/" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-100 transition">
                         <HardDriveIcon className="size-4.5" /> My Drive
                     </Link>
@@ -66,8 +66,8 @@ const SharedWithMe = () => {
             </aside>
 
             {/* Main */}
-            <main className="flex-1 px-4 sm:px-8 py-6">
-                <div className="mb-6">
+            <div className="flex-1 px-3 sm:px-4 py-4 md:px-8 md:py-6">
+                <div className="mb-4">
                     <h1 className="text-xl font-semibold tracking-tight">Shared Links</h1>
                     <p className="text-sm text-slate-500">Every active public link you've created. Revoke instantly if needed.</p>
                 </div>
@@ -84,23 +84,23 @@ const SharedWithMe = () => {
                 ) : (
                     <div className="space-y-3">
                         {links.map((l) => (
-                            <div key={l.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-2xl bg-white border border-slate-200 hover:border-orange-200 transition">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className="size-10 shrink-0 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center">
+                            <div key={l.id} className="flex flex-col gap-3 p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 hover:border-orange-200 transition">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="size-9 sm:size-10 shrink-0 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center">
                                         {l.resource_type === "folder" ? (
-                                            <FolderIcon className="size-5 text-orange-500" />
+                                            <FolderIcon className="size-4.5 sm:size-5 text-orange-500" />
                                         ) : (
-                                            getFileIcon(l.resource?.mime_type, "size-5")
+                                            getFileIcon(l.resource?.mime_type, "size-4.5 sm:size-5")
                                         )}
                                     </div>
-                                    <div className="min-w-0">
+                                    <div className="min-w-0 flex-1">
                                         <p className="text-sm font-medium truncate">{l.resource?.name || "Unknown item"}</p>
                                         <p className="text-[11px] text-slate-400">
                                             {l.resource_type === "folder" ? "Folder" : formatBytes(l.resource?.size || 0)} · shared {fmtDate(l.created_at)}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-2 justify-end">
                                     <button
                                         onClick={() => copyShareLink(l.token)}
                                         title="Copy link"
@@ -119,7 +119,16 @@ const SharedWithMe = () => {
                         ))}
                     </div>
                 )}
-            </main>
+            </div>
+
+            <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center border-t border-slate-200 bg-white px-2 py-1 gap-1 shrink-0">
+                <Link to="/" className="flex-1 flex items-center justify-center gap-2 px-2 py-2 rounded-xl text-xs text-slate-500 hover:bg-slate-100 transition">
+                    <HardDriveIcon className="size-4" /> My Drive
+                </Link>
+                <Link to="/shared" className="flex-1 flex items-center justify-center gap-2 px-2 py-2 rounded-xl text-xs bg-orange-600/10 text-orange-700 font-medium">
+                    <Share2Icon className="size-4" /> Shared Links
+                </Link>
+            </nav>
 
             <ConfirmDialog
                 isOpen={!!revokeTarget}
@@ -129,7 +138,7 @@ const SharedWithMe = () => {
                 message="Anyone using this link will immediately lose access."
                 confirmText="Revoke Link"
             />
-        </div>
+        </div > 
     );
 };
 

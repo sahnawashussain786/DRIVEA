@@ -72,27 +72,27 @@ const SharedFile = () => {
     return (
         <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
             {/* Top bar */}
-            <header className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 flex items-center gap-3">
+            <header className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 flex items-center gap-2">
                 <Link to="/" className="flex items-center gap-2">
-                    <img className="max-h-8" src="/logo.svg" alt="Drivea" />
-                    <span className="text-lg font-semibold tracking-tight">Drivea</span>
+                    <img className="max-h-7" src="/logo.svg" alt="Drivea" />
+                    <span className="text-base sm:text-lg font-semibold tracking-tight">Drivea</span>
                 </Link>
-                <span className="ml-auto text-xs text-slate-400 flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-full px-3 py-1.5">
-                    <UserIcon className="size-3.5" /> Shared by {ownerName}
+                <span className="ml-auto text-xs text-slate-400 flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5">
+                    <UserIcon className="size-3" /> Shared by {ownerName}
                 </span>
             </header>
 
             {/* Content */}
-            <main className="flex-1 flex items-start justify-center p-6 sm:p-12">
-                <div className="w-full max-w-2xl">
+            <main className="flex-1 flex items-start justify-center p-4 sm:p-6">
+                <div className="w-full max-w-xl sm:max-w-2xl">
                     {isFolder ? (
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 mb-2">
-                                <div className="size-12 rounded-2xl bg-orange-600/10 flex items-center justify-center">
-                                    <FolderIcon className="size-6 text-orange-500" />
+                                <div className="size-10 sm:size-12 rounded-2xl bg-orange-600/10 flex items-center justify-center">
+                                    <FolderIcon className="size-5 sm:size-6 text-orange-500" />
                                 </div>
                                 <div>
-                                    <h1 className="text-lg font-semibold tracking-tight">{data.folder?.name}</h1>
+                                    <h1 className="text-base sm:text-lg font-semibold tracking-tight">{data.folder?.name}</h1>
                                     <p className="text-xs text-slate-400">{data.files?.length || 0} files in this shared folder</p>
                                 </div>
                             </div>
@@ -105,12 +105,12 @@ const SharedFile = () => {
                                             download={f.name}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className={`flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition ${i > 0 ? "border-t border-slate-100" : ""}`}
+                                            className={`flex items-center gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 hover:bg-slate-50 transition ${i > 0 ? "border-t border-slate-100" : ""}`}
                                         >
                                             {f.mime_type?.startsWith("image/") ? (
-                                                <img src={f.url || f.blob_url} alt={f.name} className="size-8 rounded object-cover" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                                                <img src={f.url || f.blob_url} alt={f.name} className="size-7 sm:size-8 rounded object-cover" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
                                             ) : (
-                                                getFileIcon(f.mime_type, "size-5")
+                                                getFileIcon(f.mime_type, "size-4.5 sm:size-5")
                                             )}
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-medium truncate">{f.name}</p>
@@ -125,8 +125,8 @@ const SharedFile = () => {
                             )}
                         </div>
                     ) : data.file ? (
-                        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 flex flex-col items-center">
-                            <div className="w-full h-64 sm:h-96 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center relative overflow-hidden mb-5">
+                        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 md:p-8 flex flex-col items-center">
+                            <div className="w-full h-48 sm:h-64 md:h-80 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center relative overflow-hidden mb-4">
                                 {data.file.mime_type?.startsWith("image/") ? (
                                     <img src={data.url} alt={data.file.name} className="absolute inset-0 size-full object-contain" />
                                 ) : data.file.mime_type?.startsWith("video/") ? (
@@ -136,13 +136,13 @@ const SharedFile = () => {
                                 ) : data.file.mime_type === "application/pdf" ? (
                                     <iframe src={data.url} className="absolute inset-0 size-full" title={data.file.name} />
                                 ) : (
-                                    getFileIcon(data.file.mime_type, "size-16")
+                                    getFileIcon(data.file.mime_type, "size-12 sm:size-14 md:size-16")
                                 )}
                             </div>
                             <h1 className="text-base sm:text-lg font-semibold tracking-tight text-center truncate max-w-full">{data.file.name}</h1>
-                            <p className="text-xs text-slate-400 mb-5">{formatBytes(data.file.size)}</p>
-                            <a href={data.url} download={data.file.name} target="_blank" rel="noreferrer">
-                                <Button icon={DownloadIcon}>Download file</Button>
+                            <p className="text-xs text-slate-400 mb-4">{formatBytes(data.file.size)}</p>
+                            <a href={data.url} download={data.file.name} target="_blank" rel="noreferrer" className="w-full sm:w-auto">
+                                <Button icon={DownloadIcon} className="w-full sm:w-auto">Download file</Button>
                             </a>
                         </div>
                     ) : (
