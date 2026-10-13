@@ -339,11 +339,8 @@ router.get("/folder/:id/download", async (req, res) => {
     });
   }
 
-  const archive = await import("archiver").then((m) => m.default || m.Archiver);
-  const zip =
-    typeof archive === "function"
-      ? archive("zip", { zlib: { level: 5 } })
-      : new archive("zip", { zlib: { level: 5 } });
+  const { ZipArchive } = await import("archiver");
+  const zip = new ZipArchive({ zlib: { level: 5 } });
 
   res.setHeader("Content-Type", "application/zip");
   const safeName = (folder.name || "folder")
