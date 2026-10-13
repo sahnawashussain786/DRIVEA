@@ -6,7 +6,7 @@
   "type": "module",
   "main": "api/dev.js",
   "scripts": {
-    "dev:api": "node api/dev.js",
+    "dev:api": "node server/dev.js",
     "dev:client": "npm run dev --prefix client",
     "build": "npm run build --prefix client"
   },
