@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import "dotenv/config";
 import { mountClerkMiddleware } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
 import folderRoutes from "./routes/folders.js";
@@ -23,7 +22,7 @@ export function createApp() {
     res.json({
       ok: true,
       service: "drivea-api",
-      clerk: process.env.CLERK_SECRET_KEY ? true : false,
+      clerk: Boolean(process.env.CLERK_SECRET_KEY),
       publishable_key_set: Boolean(process.env.VITE_CLERK_PUBLISHABLE_KEY),
     }),
   );
