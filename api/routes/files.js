@@ -114,6 +114,7 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
   for (const f of incoming) {
     const meta = await storeFile(req.userId, f.originalname, f.buffer, f.mimetype);
     stored.push({
+      ownerId: req.userId,
       name: f.originalname,
       originalName: f.originalname,
       mimeType: f.mimetype || 'application/octet-stream',
