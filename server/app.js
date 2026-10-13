@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { mountClerkMiddleware } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
 import folderRoutes from "./routes/folders.js";
 import fileRoutes from "./routes/files.js";
@@ -12,9 +13,18 @@ export function createApp() {
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: "2mb" }));
 
+  // Mount Clerk session validation app-wide when CLERK_SECRET_KEY is set.
+  // Public routes (health, shared-link access) remain open because they never
+  // call requireAuth.
+  mountClerkMiddleware(app);
+
   app.get("/api/health", (req, res) =>
-    res.json({ ok: true, service: "drivea-api" }),
-  )
+    res.json({
+      ok: true,
+      service: "drivea-api",
+      clerk: Boolean(process.env.CLERK_SECRET_KEY),
+    }),
+  );
 
   app.use("/api/auth", authRoutes);
   app.use("/api/folders", folderRoutes);

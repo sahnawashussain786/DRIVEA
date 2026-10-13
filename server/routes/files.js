@@ -3,7 +3,7 @@ import multer from 'multer';
 import File from '../models/File.js';
 import Folder from '../models/Folder.js';
 import User from '../models/User.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureUser, updateUserStorage } from '../middleware/auth.js';
 import { connectDB } from '../config/db.js';
 import {
   storeFile,
@@ -54,7 +54,7 @@ router.get('/', async (req, res) => {
 // Register an already-uploaded object (browser-direct upload to Vercel Blob)
 router.post('/register', async (req, res) => {
   await connectDB();
-  const user = await User.findById(req.userId);
+  const user = await ensureUser(req.userId);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { name, mime_type, size, s3_key, blob_url, folder_id } = req.body || {};
@@ -92,7 +92,7 @@ router.post('/register', async (req, res) => {
 // Multipart upload (primary path in dev, small files anywhere)
 router.post('/upload', upload.array('files', 20), async (req, res) => {
   await connectDB();
-  const user = await User.findById(req.userId);
+  const user = await ensureUser(req.userId);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const incoming = req.files || [];
@@ -225,10 +225,7 @@ router.delete('/:id/permanent', async (req, res) => {
   if (!file) return res.status(404).json({ error: 'File not found' });
 
   await deleteStored(file);
-  await User.updateOne(
-    { _id: req.userId },
-    { $inc: { storageUsed: -Number(file.size || 0) } }
-  );
+  await updateUserStorage(req.userId, -Number(file.size || 0));
   await file.deleteOne();
   res.json({ message: 'File permanently deleted' });
 });

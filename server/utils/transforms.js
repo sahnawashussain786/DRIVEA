@@ -13,6 +13,7 @@ export const toJSON = (kind) => (doc, ret) => {
   if (kind === 'user') {
     ret.storage_used = doc.storageUsed;
     ret.storage_limit = doc.storageLimit;
+    ret.clerk_id = doc.clerkId || null;
     delete ret.passwordHash;
   }
 

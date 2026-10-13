@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { connectDB } from '../config/db.js';
 import { deleteStored } from '../services/storage.js';
+import { updateUserStorage } from '../middleware/auth.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -35,8 +36,7 @@ router.post('/empty', async (req, res) => {
   if (files.length) await File.deleteMany({ ownerId: req.userId, isTrashed: true });
   if (folders.length) await Folder.deleteMany({ ownerId: req.userId, isTrashed: true });
 
-  if (freed > 0) {
-    await User.updateOne({ _id: req.userId }, { $inc: { storageUsed: -freed } });
+  if (freed > 0) {    await updateUserStorage(req.userId, -freed);
   }
   res.json({ message: 'Trash emptied successfully' });
 });
