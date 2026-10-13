@@ -16,7 +16,7 @@ async function main() {
   const user = await User.create({ name: 'u', email: 'u@u.com', passwordHash: null, storageUsed: 0, storageLimit: 1e9 });
   const token = await makeToken(user._id.toString());
   const app = createApp();
-  const server = require('http').createServer(app);
+  const server = http.createServer(app);
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
   const req = (method, path) => new Promise((resolve, reject) => {
@@ -28,14 +28,6 @@ async function main() {
     r.on('error', reject);
     r.end();
   });
-  const recent = await req('GET', '/api/files/recent');
-  console.log('recent status:', recent.status);
-  console.log('recent body:', recent.body);
-  server.close();
-  await mem.stop();
-}
-main().catch(e => { console.error(e); process.exit(1) });
-
   const recent = await req('GET', '/api/files/recent');
   console.log('recent status:', recent.status);
   console.log('recent body:', recent.body);
