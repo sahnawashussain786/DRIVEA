@@ -1,8 +1,18 @@
 import { Router } from 'express';
 import Folder from '../models/Folder.js';
 import File from '../models/File.js';
-import { requireAuth } from '../middleware/auth.js';
+import User from '../models/User.js';
+import {
+  requireAuth,
+  ensureUser,
+  updateUserStorage,
+} from '../middleware/auth.js';
 import { connectDB } from '../config/db.js';
+import {
+  duplicateStoredFile,
+  readStoredAsBuffer,
+  storeFile,
+} from '../services/storage.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -157,6 +167,115 @@ router.delete('/:id/permanent', async (req, res) => {
   await File.deleteMany({ ownerId: req.userId, folderId: { $in: folderIds } });
   await Folder.deleteMany({ _id: { $in: folderIds }, ownerId: req.userId });
   res.json({ message: 'Folder permanently deleted' });
+});
+
+// Copy a folder (real independent copy of structure + file contents)
+router.post('/:id/copy', async (req, res) => {
+  await connectDB();
+  const source = await Folder.findOne({
+    _id: req.params.id,
+    ownerId: req.userId,
+    isTrashed: false,
+  });
+  if (!source)
+    return res.status(404).json({ error: 'Folder not found' });
+
+  const targetParentId =
+    req.body?.target_parent_id && req.body.target_parent_id !== 'null'
+      ? req.body.target_parent_id
+      : source.parentId?.toString() || null;
+  if (targetParentId) {
+    const parent = await Folder.findOne({
+      _id: targetParentId,
+      ownerId: req.userId,
+      isTrashed: false,
+    });
+    if (!parent) return res.status(404).json({ error: 'Target folder not found' });
+  }
+
+  const wantName = (req.body?.name || '').trim();
+  const name = wantName || `Copy of ${source.name}`;
+
+  // Total size of all files in the entire subtree (for quota check + charging)
+  const descendantIds = await Folder.find({
+    ownerId: req.userId,
+    path: source._id,
+  }).select('_id');
+  const folderIdSet = new Set([
+    source._id,
+    ...descendantIds.map((d) => d._id),
+  ]);
+  let totalSize = 0;
+  const filesCursor = File.find({
+    ownerId: req.userId,
+    folderId: { $in: [...folderIdSet] },
+    isTrashed: false,
+  }).select('size').cursor();
+  for await (const doc of filesCursor) {
+    totalSize += Number(doc.size || 0);
+  }
+
+  const user = await ensureUser(req.userId);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (user.storageUsed + totalSize > user.storageLimit) {
+    return res.status(413).json({ error: 'Storage limit exceeded' });
+  }
+
+  // Map old folder id -> newly created folder doc.
+  const newFolderByOldId = new Map();
+
+  const copyFolder = async (oldFolder, newParentId) => {
+    const created = await Folder.create({
+      name: oldFolder.name,
+      parentId: newParentId || null,
+      ownerId: req.userId,
+      path: newParentId ? [...(newFolderByOldId.get(newParentId)?.path || []), newFolderByOldId.get(newParentId)?._id] : [],
+    });
+    newFolderByOldId.set(oldFolder._id.toString(), created);
+
+    // Copy immediate child folders first (so their path can reference the new parent)
+    const childFolders = await Folder.find({
+      ownerId: req.userId,
+      parentId: oldFolder._id,
+      isTrashed: false,
+    });
+    for (const child of childFolders) {
+      await copyFolder(child, created._id);
+    }
+
+    // Copy files directly in this folder
+    const childFiles = await File.find({
+      ownerId: req.userId,
+      folderId: oldFolder._id,
+      isTrashed: false,
+    });
+    for (const f of childFiles) {
+      let meta;
+      try {
+        meta = await duplicateStoredFile(f, req.userId, f.originalName);
+      } catch (err) {
+        console.error('[folder-copy] duplicateStoredFile failed:', err.message);
+        return res.status(500).json({ error: 'Failed to copy file content' });
+      }
+      await File.create({
+        name: f.name,
+        originalName: f.originalName,
+        mimeType: f.mimeType,
+        size: f.size,
+        s3Key: meta.key,
+        blobUrl: meta.url,
+        localPath: meta.localPath,
+        folderId: created._id,
+        ownerId: req.userId,
+      });
+      await updateUserStorage(req.userId, f.size);
+    }
+  };
+
+  await copyFolder(source, targetParentId || null);
+
+  const newRoot = newFolderByOldId.get(source._id.toString());
+  res.status(201).json({ folder: newRoot });
 });
 
 export default router;

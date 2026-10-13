@@ -230,4 +230,55 @@ router.delete('/:id/permanent', async (req, res) => {
   res.json({ message: 'File permanently deleted' });
 });
 
+// Copy a file (real independent copy — charges storage, checks quota)
+router.post('/:id/copy', async (req, res) => {
+  await connectDB();
+  const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
+  if (!file) return res.status(404).json({ error: 'File not found' });
+
+  const targetFolderId =
+    req.body?.target_folder_id && req.body.target_folder_id !== 'null'
+      ? req.body.target_folder_id
+      : file.folderId?.toString() || null;
+  if (targetFolderId) {
+    const folder = await Folder.findOne({
+      _id: targetFolderId,
+      ownerId: req.userId,
+      isTrashed: false,
+    });
+    if (!folder) return res.status(404).json({ error: 'Target folder not found' });
+  }
+
+  const wantName = (req.body?.name || '').trim();
+  const name = wantName || `Copy of ${file.originalName}`;
+
+  const user = await ensureUser(req.userId);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (user.storageUsed + file.size > user.storageLimit) {
+    return res.status(413).json({ error: 'Storage limit exceeded' });
+  }
+
+  let meta;
+  try {
+    meta = await duplicateStoredFile(file, req.userId, name);
+  } catch (err) {
+    console.error('[copy] duplicateStoredFile failed:', err.message);
+    return res.status(500).json({ error: 'Failed to copy file content' });
+  }
+
+  const copy = await File.create({
+    name,
+    originalName: file.originalName,
+    mimeType: file.mimeType,
+    size: file.size,
+    s3Key: meta.key,
+    blobUrl: meta.url,
+    localPath: meta.localPath,
+    folderId: targetFolderId || null,
+    ownerId: req.userId,
+  });
+  await updateUserStorage(req.userId, file.size);
+  res.status(201).json({ file: copy });
+});
+
 export default router;

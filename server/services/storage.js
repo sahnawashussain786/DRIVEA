@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { put, del as blobDel } from '@vercel/blob';
+import { put, del as blobDel, get as blobGet } from '@vercel/blob';
+import { pipeline } from 'stream/promises';
 
 const DEV_UPLOAD_DIR = path.join(process.cwd(), '.uploads');
 
@@ -73,4 +74,62 @@ export async function deleteStored(fileDoc) {
   } catch (err) {
     console.error('Failed to delete stored object:', err.message);
   }
+}
+
+/**
+ * Duplicate a stored file's content under a new key/url/localPath.
+ * Returns { key, url, localPath } for the new copy. The caller is responsible
+ * for creating the new File document and charging storage.
+ *
+ * - Blob storage (prod): downloads the source blob and re-uploads it under a new
+ *   key so the copy is fully independent of the original.
+ * - Local dev: copies the local file to a new path.
+ *
+ * Intentionally synchronous-ish on the local path (dev only, small files).
+ */
+export async function duplicateStoredFile(fileDoc, destOwnerId, destName) {
+  const destKey = s3KeyFor(destOwnerId, destName);
+
+  if (fileDoc.blobUrl) {
+    // Download source blob, re-upload under a new key.
+    const src = fileDoc.blobUrl.startsWith('http')
+      ? fileDoc.blobUrl
+      : `https://${process.env.VERCEL_BLOB_DOMAIN || 'drivea'}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
+    const srcBuffer = await blobGet(src).arrayBuffer();
+    const { url } = await put(`${BLOB_PREFIX}/${destKey}`, Buffer.from(srcBuffer), {
+      access: 'public',
+      contentType: fileDoc.mimeType,
+      addRandomSuffix: false,
+    });
+    return { key: destKey, url, localPath: null };
+  }
+
+  // Local dev: copy the file on disk to a new path.
+  if (!fileDoc.localPath || !fs.existsSync(fileDoc.localPath)) {
+    throw new Error('Source file content not available for copy');
+  }
+  ensureDevDir();
+  const destLocalPath = path.join(
+    DEV_UPLOAD_DIR,
+    destKey.replace(/[\\/]/g, '__'),
+  );
+  fs.mkdirSync(path.dirname(destLocalPath), { recursive: true });
+  fs.copyFileSync(fileDoc.localPath, destLocalPath);
+  return { key: destKey, url: null, localPath: destLocalPath };
+}
+
+/** Read a stored file's content as a Buffer (blob download or local disk). */
+export async function readStoredAsBuffer(fileDoc) {
+  if (fileDoc.blobUrl) {
+    const src =
+      fileDoc.blobUrl.startsWith('http')
+        ? fileDoc.blobUrl
+        : `https://${process.env.VERCEL_BLOB_DOMAIN || 'drivea'}.blob.vercel-storage.com/${fileDoc.blobUrl}`;
+    const buf = await blobGet(src).arrayBuffer();
+    return Buffer.from(buf);
+  }
+  if (fileDoc.localPath && fs.existsSync(fileDoc.localPath)) {
+    return fs.readFileSync(fileDoc.localPath);
+  }
+  throw new Error('File content not available');
 }
