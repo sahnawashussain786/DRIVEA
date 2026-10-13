@@ -6,6 +6,11 @@
 import { createApp } from "./app.js";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
+import { config } from "dotenv";
+
+// Load .env at the project root so MONGODB_URI, CLERK_SECRET_KEY, etc. are
+// available before any route/middleware references them.
+config({ path: ".env" });
 
 const PORT = process.env.PORT || 4000;
 

@@ -2,6 +2,8 @@ import { clerkMiddleware, getAuth, clerkClient } from '@clerk/express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+import 'dotenv/config';
+
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY || '';
 const CLERK_ACTIVE = Boolean(CLERK_SECRET_KEY);
 const LEGACY_SECRET = process.env.JWT_SECRET || 'drivea_dev_secret_change_me';
