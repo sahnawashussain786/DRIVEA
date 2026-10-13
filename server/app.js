@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { diagHandler } from "./diag.js";
 import authRoutes from "./routes/auth.js";
 import folderRoutes from "./routes/folders.js";
 import fileRoutes from "./routes/files.js";
@@ -15,6 +16,7 @@ export function createApp() {
   app.get("/api/health", (req, res) =>
     res.json({ ok: true, service: "drivea-api" }),
   );
+  app.get("/api/diag", diagHandler);
 
   app.use("/api/auth", authRoutes);
   app.use("/api/folders", folderRoutes);
