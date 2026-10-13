@@ -24,13 +24,12 @@ export function mountClerkMiddleware(app) {
   // the server-side middleware factory. With only CLERK_SECRET_KEY present the
   // factory throws ("Publishable key is missing"). We catch that so the API
   // still boots; auth routes will 401 until a publishable key is configured.
-  let middleware = null;
   try {
-    middleware = clerkMiddleware();
+    app.use(clerkMiddleware());
   } catch (err) {
-    console.error('[clerk] clerkMiddleware() unavailable:', err.message);
+    console.error("[clerk] clerkMiddleware() unavailable:", err.message);
+    app.use((req, res, next) => next());
   }
-  app.use(middleware || ((req, res, next) => next()));
 }
 
 // ---------------------------------------------------------------------------
