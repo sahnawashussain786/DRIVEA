@@ -335,10 +335,32 @@ router.post("/:id/copy", async (req, res) => {
     }
   };
 
-  await copyFolder(source, targetParentId || null, name);
-
-  const newRoot = newFolderByOldId.get(source._id.toString());
+  await copyFolder(source, targetParentId || null, name);  const newRoot = newFolderByOldId.get(source._id.toString());
   res.status(201).json({ folder: newRoot });
 });
 
-export default router;
+// Toggle star on a folder
+router.patch("/:id/star", async (req, res) => {
+  await connectDB();
+  const folder = await Folder.findOne({ _id: req.params.id, ownerId: req.userId });
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  folder.isStarred = !!req.body?.is_starred;
+  await folder.save();
+  res.json({ folder });
+});
+
+// Batch permanently delete folders (and their contents)
+router.post("/batch/delete", async (req, res) => {
+  await connectDB();
+  const ids = (req.body?.ids || []).map(String);
+  if (ids.length === 0) return res.status(400).json({ error: "No ids provided" });
+  const descendants = await Folder.find({
+    ownerId: req.userId,
+    _id: { $in: ids },
+  }).select("_id");
+  const folderIds = [...ids, ...descendants.map((d) => d._id)];
+  await File.deleteMany({ ownerId: req.userId, folderId: { $in: folderIds } });
+  await Folder.deleteMany({ _id: { $in: folderIds }, ownerId: req.userId });
+  res.json({ deleted: folderIds.length });
+});
+export default router;

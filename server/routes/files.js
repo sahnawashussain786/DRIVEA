@@ -354,9 +354,7 @@ router.get("/folder/:id/download", async (req, res) => {
   const done = new Promise((resolve, reject) => {
     zip.on("error", reject);
     zip.on("end", resolve);
-  });
-
-  zip.pipe(res);
+  });  zip.pipe(res);
   let failed = false;
 
   for (const f of files) {
@@ -379,6 +377,75 @@ router.get("/folder/:id/download", async (req, res) => {
       res.status(500).json({ error: "Failed to build zip" });
     }
   }
+});
+
+// Recent files across all folders (by updatedAt desc)
+router.get("/recent", async (req, res) => {
+  await connectDB();
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const files = await File.find({ ownerId: req.userId, isTrashed: false })
+    .sort({ updatedAt: -1 })
+    .limit(limit);
+  res.json({ files });
+});
+
+// Toggle star on a file
+router.patch("/:id/star", async (req, res) => {
+  await connectDB();
+  const file = await File.findOne({ _id: req.params.id, ownerId: req.userId });
+  if (!file) return res.status(404).json({ error: "File not found" });
+  file.isStarred = !!req.body?.is_starred;
+  await file.save();
+  res.json({ file });
+});
+
+// Batch delete files (move to trash)
+router.post("/batch/delete", async (req, res) => {
+  await connectDB();
+  const ids = (req.body?.ids || []).map(String);
+  if (ids.length === 0) return res.status(400).json({ error: "No ids provided" });
+  const result = await File.updateMany(
+    { _id: { $in: ids }, ownerId: req.userId },
+    { isTrashed: true, trashedAt: new Date() },
+  );
+  res.json({ moved: result.modifiedCount });
+});
+
+// Batch move files
+router.post("/batch/move", async (req, res) => {
+  await connectDB();
+  const ids = (req.body?.ids || []).map(String);
+  const targetFolderId =
+    req.body?.target_folder_id && req.body.target_folder_id !== "null"
+      ? req.body.target_folder_id
+      : null;
+  if (ids.length === 0) return res.status(400).json({ error: "No ids provided" });
+  if (targetFolderId) {
+    const folder = await Folder.findOne({
+      _id: targetFolderId,
+      ownerId: req.userId,
+    });
+    if (!folder)
+      return res.status(404).json({ error: "Target folder not found" });
+  }
+  const result = await File.updateMany(
+    { _id: { $in: ids }, ownerId: req.userId },
+    { folderId: targetFolderId || null },
+  );
+  res.json({ moved: result.modifiedCount });
+});
+
+// Batch star/unstar files
+router.post("/batch/star", async (req, res) => {
+  await connectDB();
+  const ids = (req.body?.ids || []).map(String);
+  if (ids.length === 0) return res.status(400).json({ error: "No ids provided" });
+  const isStarred = !!req.body?.is_starred;
+  const result = await File.updateMany(
+    { _id: { $in: ids }, ownerId: req.userId },
+    { isStarred },
+  );
+  res.json({ updated: result.modifiedCount });
 });
 
 export default router;
