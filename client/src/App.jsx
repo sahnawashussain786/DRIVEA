@@ -33,6 +33,7 @@ const App = () => {
 
                 {/* Protected */}
                 <Route path="/" element={<ProtectedRoute><Drive /></ProtectedRoute>} />
+                <Route path="/f/:id" element={<ProtectedRoute><Drive /></ProtectedRoute>} />
                 <Route path="/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
                 <Route path="/shared" element={<ProtectedRoute><SharedWithMe /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
