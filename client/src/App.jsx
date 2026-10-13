@@ -3,11 +3,13 @@ import { Toaster } from 'react-hot-toast'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { Spinner } from './components/ui/Spinner'
-import Login from './pages/Login'
+import Login, { Register } from './pages/Login'
 import Drive from './pages/Drive'
 import Trash from './pages/Trash'
 import SharedWithMe from './pages/SharedWithMe'
 import SharedFile from './pages/SharedFile'
+
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
 
 function ProtectedRoute({ children }) {
     const { user, loading } = useAuth()
@@ -23,12 +25,12 @@ function ProtectedRoute({ children }) {
 
 const App = () => {
     return (
-        <AuthProvider>
+        <AuthProvider publishableKey={publishableKey || undefined}>
             <Toaster position="bottom-right" />
             <Routes>
                 {/* Public */}
-                <Route path="/login" element={<Login mode="login" />} />
-                <Route path="/register" element={<Login mode="register" />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
                 <Route path="/s/:token" element={<SharedFile />} />
 
                 {/* Protected */}

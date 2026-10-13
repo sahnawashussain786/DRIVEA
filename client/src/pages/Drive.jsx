@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { useDropzone } from "react-dropzone";
 import {
     CloudIcon, FolderPlusIcon, UploadIcon, SearchIcon, LayoutGridIcon, ListIcon,
-    HardDriveIcon, TrashIcon, Share2Icon, ChevronRightIcon, LogOutIcon, FileIcon,
+    HardDriveIcon, TrashIcon, Share2Icon, ChevronRightIcon, FileIcon,
     FolderIcon, XIcon, DownloadIcon, ArrowUpRightIcon, SortAscIcon,
     XCircleIcon, CopyIcon,
 } from "lucide-react";
@@ -17,7 +17,7 @@ import { ItemDropdown } from "../components/ui/ItemDropdown";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Spinner } from "../components/ui/Spinner";
 import { ProgressBar } from "../components/ui/ProgressBar";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, UserButton } from "../context/AuthContext";
 import {
     folderApi, fileApi, shareApi, copyShareLink, getFileIcon, formatBytes, SORT_OPTIONS,
 } from "../assets/api";
@@ -39,7 +39,7 @@ const Drive = () => {
     const params = useParams();
     const folderId = params.id || null; // /f/:id for nested folders
 
-    const { user, updateUser, logout } = useAuth();
+    const { user, updateUser } = useAuth();
 
     const [folders, setFolders] = useState([]);
     const [files, setFiles] = useState([]);
@@ -333,25 +333,11 @@ const Drive = () => {
                         </p>
                     </div>
                     <div className="flex items-center justify-between px-1 mt-4">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-8 h-8 shrink-0 rounded-full bg-orange-600/15 text-orange-700 text-xs font-semibold flex items-center justify-center">
-                                {(user?.name || "?").slice(0, 1).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs font-medium truncate">{user?.name}</p>
-                                <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
-                            </div>
+                        <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{user?.name || "User"}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{user?.email || ""}</p>
                         </div>
-                        <button
-                            onClick={async () => {
-                                await logout();
-                                navigate("/login");
-                            }}
-                            title="Log out"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                        >
-                            <LogOutIcon className="size-4" />
-                        </button>
+                        <UserButton afterSignOutUrl="/login" />
                     </div>
                 </div>
             </aside>
@@ -637,27 +623,13 @@ const Drive = () => {
                 })}
             </nav>
 
-            {/* Mobile floating storage + user chip */}
+            {/* Mobile floating storage + account button */}
             <div className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center justify-between px-3 py-2 bg-white border-t border-slate-200">
-                <div className="flex items-center gap-2 text-xs">
-                    <HardDriveIcon className="size-3.5 text-slate-500" />
+                <div className="flex items-center gap-2 text-xs min-w-0">
+                    <HardDriveIcon className="size-3.5 text-slate-500 shrink-0" />
                     <span className="truncate font-medium">{formatBytes(user?.storage_used || 0)} / {formatBytes(user?.storage_limit || 0)}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 shrink-0 rounded-full bg-orange-600/15 text-orange-700 text-[10px] font-semibold flex items-center justify-center">
-                        {(user?.name || "?").slice(0, 1).toUpperCase()}
-                    </div>
-                    <button
-                        onClick={async () => {
-                            await logout();
-                            navigate("/login");
-                        }}
-                        title="Log out"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                    >
-                        <LogOutIcon className="size-4" />
-                    </button>
-                </div>
+                <UserButton afterSignOutUrl="/login" className="shrink-0" />
             </div>
 
             {/* ------------------------------ Modals ------------------------------ */}

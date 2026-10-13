@@ -6,32 +6,31 @@ import {
   copyShareLink,
 } from "./assets";
 import { toast } from "react-hot-toast";
+import { getAuthHeaders, setSignOutSupplier } from "../lib/auth-token";
 
 export { SORT_OPTIONS, formatBytes, getFileIcon, copyShareLink };
-
-const TOKEN_KEY = "drivea_token";
-
-const getToken = () => localStorage.getItem(TOKEN_KEY);
-export const setStoredToken = (token) =>
-  token
-    ? localStorage.setItem(TOKEN_KEY, token)
-    : localStorage.removeItem(TOKEN_KEY);
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
 });
 
 api.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  Object.assign(config.headers, getAuthHeaders());
   return config;
+});
+
+let signOut = null;
+setSignOutSupplier((fn) => {
+  signOut = fn;
 });
 
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      setStoredToken(null);
+      try {
+        await signOut?.();
+      } catch {}
       if (window.location.pathname !== "/login")
         window.location.href = "/login";
     }
@@ -45,30 +44,22 @@ export const getErrMessage = (err) =>
 /* ---------------- AUTH ---------------- */
 
 export const authApi = {
+  /**
+   * Current user profile + storage accounting from the server.
+   * Called by the AuthContext to fill storage_used / storage_limit.
+   */
   async me() {
     const { data } = await api.get("/auth/me");
     return data.user;
   },
-  async register({ name, email, password }) {
-    const { data } = await api.post("/auth/register", {
-      name,
-      email,
-      password,
-    });
-    setStoredToken(data.token);
-    return data.user;
-  },
-  async login({ email, password }) {
-    const { data } = await api.post("/auth/login", { email, password });
-    setStoredToken(data.token);
-    return data.user;
-  },
+  /**
+   * No-op server endpoint kept for compatibility; sign-out is handled by
+   * Clerk client-side. The body is harmless.
+   */
   async logout() {
     try {
       await api.post("/auth/logout");
-    } finally {
-      setStoredToken(null);
-    }
+    } catch {}
   },
 };
 
