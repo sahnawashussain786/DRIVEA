@@ -17,7 +17,7 @@ export const useAuth = () => useContext(AuthContext);
 // axios client. `user` is the server-side profile from GET /auth/me.
 // ---------------------------------------------------------------------------
 
-function mergeUser(clerkUser, serverUser) {
+function mergeUser(serverUser) {
   return {
     id: serverUser?.id || null,
     name: serverUser?.name || "User",
@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
     }
     try {
       const serverUser = await authApi.me();
-      setUser(mergeUser(null, serverUser));
+      setUser(mergeUser(serverUser));
       return serverUser;
     } catch (err) {
       console.error("[auth] /auth/me failed:", err);
@@ -117,7 +117,7 @@ export function AuthProvider({ children }) {
 // UserButton — simple local-avatar + dropdown with user info and log out.
 // ---------------------------------------------------------------------------
 
-export function UserButton(props) {
+export function UserButton({ afterSignOutUrl, className, ...props }) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -137,7 +137,7 @@ export function UserButton(props) {
     .toUpperCase();
 
   return (
-    <div className="relative" {...props}>
+    <div className={`relative ${className || ""}`} {...props}>
       <button
         type="button"
         onClick={(e) => {
