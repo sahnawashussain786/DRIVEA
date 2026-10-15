@@ -39,29 +39,6 @@ export function mountClerkMiddleware(app) {
 
 export function requireAuth(req, res, next) {
   if (CLERK_ACTIVE) {
-    try {
-      const hdr = req.headers.authorization || "";
-      if (hdr.startsWith("Bearer ")) {
-        const parts = hdr.slice(7).split(".");
-        if (parts.length === 3) {
-          try {
-            const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-            console.log(
-              "[auth-debug] bearer iss=%s sub=%s iat=%s nbf=%s exp=%s",
-              payload.iss,
-              payload.sub,
-              payload.iat != null ? new Date(payload.iat * 1000).toISOString() : "-",
-              payload.nbf != null ? new Date(payload.nbf * 1000).toISOString() : "-",
-              payload.exp != null ? new Date(payload.exp * 1000).toISOString() : "-",
-            );
-          } catch (e) {
-            console.log("[auth-debug] bearer payload unparsable");
-          }
-        }
-      } else {
-        console.log("[auth-debug] no bearer header");
-      }
-    } catch {}
     const { isAuthenticated, userId } = getAuth(req);
     if (!isAuthenticated || !userId) {
       return res.status(401).json({ error: "Unauthorized" });
