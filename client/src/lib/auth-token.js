@@ -1,31 +1,28 @@
 /**
- * Bridge between Clerk's React auth hook and the axios API client.
+ * Token bridge between the AuthContext / API client and localStorage.
  *
- * Clerk's useAuth().getToken() is async (returns a Promise<string>), so the
- * axios request interceptor must await it. This module holds mutable suppliers
- * that a top-level component keeps in sync on every render.
+ * Standard JWT auth: the token is issued by POST /auth/login or
+ * POST /auth/register and stored in localStorage. The axios request
+ * interceptor awaits getAuthHeaders() so it stays async-compatible.
  */
-let tokenSupplier = null;
-let signOutSupplier = null;
+const TOKEN_KEY = "drivea_token";
 
-export const setTokenSupplier = (fn) => {
-  tokenSupplier = fn;
-};
-
-export const setSignOutSupplier = (fn) => {
-  signOutSupplier = fn;
-};
-
-export const getAuthHeaders = async () => {
+export const getToken = () => {
   try {
-    const token = await tokenSupplier?.();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return localStorage.getItem(TOKEN_KEY);
   } catch {
-    return {};
+    return null;
   }
 };
 
-export const clearTokenSupplier = () => {
-  tokenSupplier = null;
-  signOutSupplier = null;
+export const setToken = (token) => {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+};
+
+export const getAuthHeaders = async () => {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };

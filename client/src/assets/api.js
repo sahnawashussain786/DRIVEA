@@ -6,7 +6,7 @@ import {
   copyShareLink,
 } from "./assets";
 import { toast } from "react-hot-toast";
-import { getAuthHeaders, setSignOutSupplier } from "../lib/auth-token";
+import { getAuthHeaders, setToken } from "../lib/auth-token";
 
 export { SORT_OPTIONS, formatBytes, getFileIcon, copyShareLink };
 
@@ -19,18 +19,13 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-let signOut = null;
-setSignOutSupplier((fn) => {
-  signOut = fn;
-});
-
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
+    // A 401 means our token is missing/expired/invalid: clear it and send the
+    // user back to the login page (only if we are not already there).
     if (error.response?.status === 401) {
-      try {
-        await signOut?.();
-      } catch {}
+      setToken(null);
       if (window.location.pathname !== "/login")
         window.location.href = "/login";
     }
@@ -53,8 +48,23 @@ export const authApi = {
     return data.user;
   },
   /**
-   * No-op server endpoint kept for compatibility; sign-out is handled by
-   * Clerk client-side. The body is harmless.
+   * POST /auth/login — returns { user, token }.
+   */
+  async login({ email, password }) {
+    const { data } = await api.post("/auth/login", { email, password });
+    return data;
+  },
+
+  /**
+   * POST /auth/register — returns { user, token }.
+   */
+  async register({ name, email, password }) {
+    const { data } = await api.post("/auth/register", { name, email, password });
+    return data;
+  },
+
+  /**
+   * Fire-and-forget server logout (stateless JWT on their side).
    */
   async logout() {
     try {

@@ -5,106 +5,96 @@ import {
   useState,
   useCallback,
 } from "react";
-import {
-  ClerkProvider,
-  useAuth as useClerkAuth,
-  useUser,
-  UserButton as ClerkUserButton,
-  SignIn as ClerkSignInComponent,
-  SignUp as ClerkSignUpComponent,
-} from "@clerk/clerk-react";
 import { authApi } from "../assets/api";
-import {
-  setTokenSupplier,
-  setSignOutSupplier,
-  clearTokenSupplier,
-} from "../lib/auth-token";
+import { getAuthHeaders, setToken, getToken } from "../lib/auth-token";
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
 // ---------------------------------------------------------------------------
-// Config context: lets components know whether Clerk is actually configured.
-// When the publishable key is absent we avoid mounting Clerk hooks/components
-// so the app doesn't throw, and instead shows a clear placeholder.
+// Standard JWT auth (no third-party provider).
+// The token lives in localStorage and is attached to every request by the
+// axios client. `user` is the server-side profile from GET /auth/me.
 // ---------------------------------------------------------------------------
-const ClerkConfigContext = createContext({ isConfigured: false });
-export const useClerkConfigured = () =>
-  useContext(ClerkConfigContext).isConfigured;
 
-function mergeUserProfile(clerkUser, serverUser) {
+function mergeUser(clerkUser, serverUser) {
   return {
-    id: clerkUser?.id || serverUser?.clerk_id || serverUser?.id || null,
-    name:
-      clerkUser?.fullName || clerkUser?.firstName || serverUser?.name || "User",
-    email: clerkUser?.emailAddress || serverUser?.email || null,
-    imageUrl: clerkUser?.imageUrl || null,
+    id: serverUser?.id || null,
+    name: serverUser?.name || "User",
+    email: serverUser?.email || null,
+    imageUrl: serverUser?.imageUrl || null,
     storage_used: Number(serverUser?.storage_used || 0),
     storage_limit: Number(serverUser?.storage_limit || 0),
-    clerk_id: clerkUser?.id || serverUser?.clerk_id || null,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Clerk-powered auth provider (mounted only when a publishable key is present).
-// ---------------------------------------------------------------------------
-function AuthProviderInner({ children }) {
-  const clerkAuth = useClerkAuth();
-  const clerkUser = useUser();
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(getToken()));
 
-  useEffect(() => {
-    setTokenSupplier(clerkAuth.getToken);
-    setSignOutSupplier(clerkAuth.signOut);
-    return () => {
-      clearTokenSupplier();
-    };
-  }, [clerkAuth]);
-
+  // Reload the current user from the server using the stored token.
   const refresh = useCallback(async () => {
-    if (!clerkAuth.isLoaded || !clerkAuth.isSignedIn) {
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) {
       setUser(null);
       setLoading(false);
       return null;
     }
     try {
       const serverUser = await authApi.me();
-      setUser(mergeUserProfile(clerkUser, serverUser));
-      return user;
+      setUser(mergeUser(null, serverUser));
+      return serverUser;
     } catch (err) {
       console.error("[auth] /auth/me failed:", err);
-      // Do NOT sign out here — the axios 401 interceptor already handles
-      // sign-out + redirect in one place. Reacting here as well caused a
-      // sign-out/re-auth ping-pong loop when the server rejected the token.
+      // The axios 401 interceptor clears the token and redirects; this
+      // handler only makes sure the context settles into a signed-out
+      // state if /auth/me failed for another reason (e.g. network error).
       setUser(null);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [clerkAuth, clerkUser]);
+  }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (clerkAuth.isLoaded && clerkAuth.isSignedIn) {
-      refresh();
-    } else if (!clerkAuth.isSignedIn) {
-      setUser(null);
-      setLoading(false);
-    }
-  }, [clerkAuth.isSignedIn, clerkAuth.isLoaded]);
-
   const logout = useCallback(async () => {
-    await clerkAuth.signOut();
+    // Best-effort server call; the session is stateless, so what matters is
+    // dropping the local token and resetting the context.
+    try {
+      await authApi.logout();
+    } catch {}
+    setToken(null);
     setUser(null);
-  }, [clerkAuth]);
+    window.location.href = "/login";
+  }, []);
 
   const updateUser = useCallback((patch) => {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
+
+  const login = useCallback(async ({ email, password }) => {
+    const { user: serverUser, token } = await authApi.login({
+      email,
+      password,
+    });
+    setToken(token);
+    await refresh();
+    return serverUser;
+  }, [refresh]);
+
+  const register = useCallback(async ({ name, email, password }) => {
+    const { user: serverUser, token } = await authApi.register({
+      name,
+      email,
+      password,
+    });
+    setToken(token);
+    await refresh();
+    return serverUser;
+  }, [refresh]);
 
   return (
     <AuthContext.Provider
@@ -114,144 +104,73 @@ function AuthProviderInner({ children }) {
         refresh,
         logout,
         updateUser,
-        login: () => {
-          window.location.href = "/login";
-        },
-        register: () => {
-          window.location.href = "/register";
-        },
+        login,
+        register,
       }}
     >
-      <ClerkConfigContext.Provider value={{ isConfigured: true }}>
-        {children}
-      </ClerkConfigContext.Provider>
+      {children}
     </AuthContext.Provider>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Unconfigured auth provider — used when no Clerk publishable key is set.
-// Provides a safe AuthContext (nobody is signed in) and avoids all Clerk hooks.
+// UserButton — simple local-avatar + dropdown with user info and log out.
 // ---------------------------------------------------------------------------
-function UnconfiguredAuthProvider({ children }) {
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // The axios token/signOut bridges stay empty so the API client sends no auth
-    // header and never tries to sign out.
-    setTokenSupplier(null);
-    setSignOutSupplier(null);
-    return () => {
-      clearTokenSupplier();
-    };
-  }, []);
-
-  const logout = useCallback(async () => {}, []);
-  const updateUser = useCallback((patch) => {}, []);
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user: null,
-        loading,
-        refresh: async () => null,
-        logout,
-        updateUser,
-        login: () => {
-          window.location.href = "/login";
-        },
-        register: () => {
-          window.location.href = "/register";
-        },
-      }}
-    >
-      <ClerkConfigContext.Provider value={{ isConfigured: false }}>
-        {children}
-      </ClerkConfigContext.Provider>
-    </AuthContext.Provider>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Top-level provider.
-// ---------------------------------------------------------------------------
-export function AuthProvider({ children, publishableKey }) {
-  const configured = Boolean(publishableKey);
-  if (!configured) {
-    return <UnconfiguredAuthProvider>{children}</UnconfiguredAuthProvider>;
-  }
-  return (
-    <ClerkProvider publishableKey={publishableKey}>
-      <AuthProviderInner>{children}</AuthProviderInner>
-    </ClerkProvider>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Guarded Clerk components — render real Clerk UI when configured, a placeholder
-// when not, so the app never throws before Clerk keys are added.
-// ---------------------------------------------------------------------------
-function ClerkGate({ configured, children, fallback }) {
-  if (!configured) return fallback;
-  return children;
-}
 
 export function UserButton(props) {
+  const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [open]);
+
+  const initials = (user?.name || "U")
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
-    <ClerkGate
-      configured={useClerkConfigured()}
-      fallback={
-        <button
-          type="button"
-          className="inline-flex items-center justify-center rounded-lg text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-2 py-1.5"
-          title="Sign in to manage your account"
+    <div className="relative" {...props}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="flex items-center justify-center rounded-full bg-indigo-600 text-white text-sm font-semibold w-9 h-9 hover:bg-indigo-500 focus:outline-none"
+        title={user?.email || user?.name || "Account"}
+      >
+        {initials || "U"}
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg z-50 p-3"
+          onClick={(e) => e.stopPropagation()}
         >
-          Account
-        </button>
-      }
-      {...props}
-    >
-      <ClerkUserButton {...props} afterSignOutUrl="/login" />
-    </ClerkGate>
+          <div className="mb-2">
+            <p className="text-sm font-medium text-slate-900 truncate">
+              {user?.name || "User"}
+            </p>
+            {user?.email && (
+              <p className="text-xs text-slate-500 truncate">{user.email}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-2 hover:bg-slate-100"
+          >
+            Log out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
-
-export const ClerkSignIn = (props) => (
-  <ClerkGate
-    configured={useClerkConfigured()}
-    fallback={
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-        <p className="text-sm text-slate-600 mb-3">
-          Authentication is not configured yet.
-        </p>
-        <p className="text-xs text-slate-400">
-          Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> in your Clerk project’s
-          environment variables (Production scope) and redeploy.
-        </p>
-      </div>
-    }
-    {...props}
-  >
-    <ClerkSignInComponent afterSignInUrl="/" afterSignUpUrl="/" {...props} />
-  </ClerkGate>
-);
-
-export const ClerkSignUp = (props) => (
-  <ClerkGate
-    configured={useClerkConfigured()}
-    fallback={
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-        <p className="text-sm text-slate-600 mb-3">
-          Authentication is not configured yet.
-        </p>
-        <p className="text-xs text-slate-400">
-          Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> in your Clerk project’s
-          environment variables (Production scope) and redeploy.
-        </p>
-      </div>
-    }
-    {...props}
-  >
-    <ClerkSignUpComponent afterSignInUrl="/" afterSignUpUrl="/" {...props} />
-  </ClerkGate>
-);
