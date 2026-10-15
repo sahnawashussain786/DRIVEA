@@ -9,27 +9,22 @@ import Trash from "./pages/Trash";
 import SharedWithMe from "./pages/SharedWithMe";
 import SharedFile from "./pages/SharedFile";
 
-// Vite statically replaces import.meta.env.VITE_CLERK_PUBLISHABLE_KEY at build time.
-// For deploys, set VITE_CLERK_PUBLISHABLE_KEY in your Clerk project's environment
-// variables (Production scope — not just Development) and redeploy. Local .env.local
-// is git-ignored and never deployed, so it does not affect the deployed build.
-const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
+
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
+  const { user, loading } = useAuth();  if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Spinner size="lg" />
+        </div>
+      );
+    }
   return user ? children : <Navigate to="/login" replace />;
 }
 
 const App = () => {
   return (
-    <AuthProvider publishableKey={publishableKey || undefined}>
+    <AuthProvider>
       <Toaster position="bottom-right" />
       <Routes>
         {/* Public */}
