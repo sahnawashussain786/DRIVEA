@@ -74,7 +74,9 @@ function AuthProviderInner({ children }) {
       return user;
     } catch (err) {
       console.error("[auth] /auth/me failed:", err);
-      clerkAuth.signOut();
+      // Do NOT sign out here — the axios 401 interceptor already handles
+      // sign-out + redirect in one place. Reacting here as well caused a
+      // sign-out/re-auth ping-pong loop when the server rejected the token.
       setUser(null);
       return null;
     } finally {
